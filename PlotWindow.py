@@ -4,7 +4,7 @@
 Copyright (c) UChicago Argonne, LLC. All rights reserved.
 See LICENSE file.
 """
-
+# --------------------------------------------------------------------------------------#
 from __future__ import unicode_literals
 import sys
 import os
@@ -25,6 +25,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4 import NavigationToolbar2QT as NavigationToolbar
 import gc
+# --------------------------------------------------------------------------------------#
 
 class MainWindow (QtGui.QMainWindow):
 
