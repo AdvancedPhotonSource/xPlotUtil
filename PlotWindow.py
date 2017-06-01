@@ -15,22 +15,23 @@ from matplotlib.backends import qt_compat
 
 use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
 if use_pyside:
-    from PySide import QtGui, QtCore
+    from PySide.QtGui import *
+    from PySide.QtCore import *
 else:
-    from PyQt4 import QtGui, QtCore
+    from PyQt5.QtGui import *
+    from PyQt5.QtCore import *
+    from PyQt5.QtWidgets import *
 
 import matplotlib.pyplot as plt
-matplotlib.use('Qt4Agg')
 from DockedOptions import DockedOption
-from GaussianFit import GaussianFitting
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.backends.backend_qt4 import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationToolbar
 import gc
 import ntpath
 # --------------------------------------------------------------------------------------#
 
-class MainWindow (QtGui.QMainWindow):
+class MainWindow (QMainWindow):
 
     def __init__ (self, parent=None):
         super(MainWindow, self).__init__(parent)
@@ -38,22 +39,24 @@ class MainWindow (QtGui.QMainWindow):
         self.setGeometry(50, 50, 1000, 800)
         self.setMinimumSize(800, 700)
         self.setWindowTitle("xPlot Util")
-        self.setWindowIcon(QtGui.QIcon('Icons/Graph.png'))
+        self.setWindowIcon(QIcon('Icons/Graph.png'))
         self.dockedOpt = DockedOption(parent = self)
+        self.gausFit = self.dockedOpt.gausFit
+        self.readSpec = self.dockedOpt.readSpec
         self.canvasArray = []
         self.figArray = []
-        self.TT = [[]]
 
         self.SetupComponents()
         self.windowTabs()
-        self.dockedOpt.DockRawDataOptions()
+        # self.dockedOpt.DockRawDataOptions() #Starts with the raw data options
+        self.dockedOpt.DockMainOptions()
         self.setCentralWidget(self.tabWidget)
-        self.setTabPosition(QtCore.Qt.RightDockWidgetArea | QtCore.Qt.LeftDockWidgetArea, QtGui.QTabWidget.North)
+        self.setTabPosition(Qt.RightDockWidgetArea | Qt.LeftDockWidgetArea, QTabWidget.North)
 
     # ---------------------------------------------------------------------------------------------#
     def windowTabs(self):
         """This function creates the central widget QTabWidget and creates the Data tab"""
-        self.tabWidget = QtGui.QTabWidget()
+        self.tabWidget = QTabWidget()
 
         self.tabWidget.setTabsClosable(True)
         self.tabWidget.tabCloseRequested.connect(self.closeTab)
@@ -80,42 +83,48 @@ class MainWindow (QtGui.QMainWindow):
     def SetupComponents(self):
         """ Function to setup status bar and menu bar
         """
-        self.myStatusBar = QtGui.QStatusBar()
+        self.myStatusBar = QStatusBar()
         self.setStatusBar(self.myStatusBar)
         self.myStatusBar.showMessage('Ready', 30000)
 
         self.CreateActions()
         self.CreateMenus()
         self.fileMenu.addAction(self.openAction)
+        self.fileMenu.addAction(self.resetAction)
         self.fileMenu.addSeparator()
         self.fileMenu.addAction(self.exitAction)
-        self.graphMenu.addAction(self.graphRawData)
-        self.graphMenu.addAction(self.GaussianFit)
+        self.graphMenu.addAction(self.mainOptionsAction)
+        self.graphMenu.addAction(self.GaussianFitAction)
         self.graphMenu.addAction(self.LFit)
-        self.LFit.setEnabled(False)
+        self.graphMenu.addSeparator()
+        self.graphMenu.addAction(self.reportAction)
         self.helpMenu.addSeparator()  
         self.helpMenu.addAction(self.aboutAction)
 
+        # Setting L Fit to not enabled until the Gaussian Fit is complete
+        self.LFit.setEnabled(False)
+
     def CreateActions(self):
         """Function that creates the actions used in the menu bar"""
-        self.openAction = QtGui.QAction(QtGui.QIcon('openFolder.png'), '&Open',
-                                        self, shortcut=QtGui.QKeySequence.Open,
+        self.openAction = QAction(QIcon('openFolder.png'), '&Open',
+                                        self, shortcut=QKeySequence.Open,
                                         statusTip="Open an existing file",
-                                        triggered=self.dockedOpt.openFile)
-        self.exitAction = QtGui.QAction(QtGui.QIcon('exit.png'), 'E&xit',
+                                        triggered=self.readSpec.openSpecFile)
+        self.exitAction = QAction(QIcon('exit.png'), 'E&xit',
                                         self, shortcut="Ctrl+Q",
                                         statusTip="Exit the Application",
                                         triggered=self.exitFile)
-        self.GaussianFit= QtGui.QAction('Gaussian Fit',
-                                                   self, statusTip="Dock the graphing options",
-                                                   triggered= self.dockedOpt.GaussianFittingData)
-        self.graphRawData= QtGui.QAction('Raw Data',
-                                            self, statusTip="Plots different graphs for the raw data",
-                                             triggered= self.dockedOpt.restoreRawDataOptions)
-        self.LFit = QtGui.QAction('L Fit',
-                                          self, statusTip="Fits the data to the L fit",
-                                          triggered= self.dockedOpt.LFittingData)
-        self.aboutAction = QtGui.QAction(QtGui.QIcon('about.png'), 'A&bout',
+        self.resetAction = QAction('Reset', self, statusTip="Resets xPlot Util",
+                                  triggered=self.dockedOpt.resetxPlot)
+        self.reportAction = QAction('Report', self, statusTip="Create a report of the data",
+                                         triggered=self.ReportDialog)
+        self.mainOptionsAction = QAction('Main Options', self, statusTip="Main options for xPlot Util",
+                                             triggered=self.dockedOpt.restoreMainOptions)
+        self.GaussianFitAction= QAction('Gaussian Fit',self, statusTip="Dock the graphing options" ,
+                                        triggered=self.dockedOpt.WhichPeakGaussianFit)
+        self.LFit = QAction('L Fit', self, statusTip="Fits the data to the L fit",
+                                  triggered =self.dockedOpt.GraphingLOptionsTree)
+        self.aboutAction = QAction(QIcon('about.png'), 'A&bout',
                                          self, shortcut="Ctrl+B", statusTip="Displays info about the graph program",
                                          triggered=self.aboutHelp)
 
@@ -125,34 +134,36 @@ class MainWindow (QtGui.QMainWindow):
         self.fileMenu = self.mainMenu.addMenu("File")
         self.graphMenu = self.mainMenu.addMenu("xPlot")
         self.helpMenu = self.mainMenu.addMenu("Help")
+
     # ---------------------------------------------------------------------------------------------#
     def exitFile(self):
-        response = self.msgApp("Exiting Form", "Would you like to exit the form")
+        response = self.dockedOpt.msgApp("Exiting Form", "Would you like to exit the form")
 
         if response == "Y":
             self.close()
         else:
             pass
 
-    def msgApp(self, title, msg):
-        userInfo = QtGui.QMessageBox.question(self, title, msg, QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
-
-        if userInfo == QtGui.QMessageBox.Yes:
-            return "Y"
-        if userInfo == QtGui.QMessageBox.No:
-            return "N"
-
     def aboutHelp(self):
-        QtGui.QMessageBox.about(self, "About xPlot Util",
-                          "Open a file and graph the raw data or click on the xPlot tab\n "
-                          "to fit the data. Also under xPlot you can restore the Graphing options "
-                          "if you close them.")
+        QMessageBox.about(self, "About xPlot Util",
+                          "Click on the browse button to select and open a spec file.\n"
+                          "Choose a PVValue and under xPlot in the menu bar you can click\n on the fits. "
+                          "Once you've clicked on the fit, checkboxes will apear that\n will enable you "
+                          "to graph")
+
+    # ---------------------------------------------------------------------------------------------------#
+    def savingCanvasTabs(self,tab, name, canvas, fig):
+        self.tabWidget.addTab(tab, name)
+        self.tabWidget.setCurrentWidget(tab)
+
+        self.canvasArray.append(canvas)
+        self.figArray.append(fig)
 
     # ---------------------------------------------------------------------------------------------------#
     def PlotColorGraphRawData(self):
         """This function uses the raw data to plot a color graph of the data
         """
-        mainGraph = QtGui.QWidget()
+        mainGraph = QWidget()
         fN = str(self.dockedOpt.fileName)
         dpi = 100
         fig = Figure((3.0, 3.0), dpi=dpi)
@@ -169,108 +180,210 @@ class MainWindow (QtGui.QMainWindow):
             if line.startswith('#'):
                 header = line
         inF.close()
-        data = np.loadtxt(open(self.dockedOpt.fileName))
         words = header.split()
         ampl = ''
         if len(words) > 6:
             ampl = words[6]
         line1 = '[-' + str(ampl) + '] --> [0] --> [+' + str(ampl) + '] --> [0] --> [-' + str(ampl) + '] '
-        title0 = title0 + '\n' + header
-        nRow = data.shape[0]  # Gets the number of rows
-        nCol = data.shape[1]  # Gets the number of columns
-        x = 0
-        for f in range(nCol):
-            if (np.mean(data[:, f]) == 0):
-                pass
-            else:
-                x += 1
-        nCol = x
 
-        self.TT = np.zeros((nRow, nCol))
-        for i in range(nCol):
-            self.TT[:, i] = data[:, i]
+        nRow, nCol = self.dockedOpt.fileInfo()
 
-        tMax = np.max(self.TT)
-        tMin = np.min(self.TT)
+        tMax = np.max(self.dockedOpt.TT)
+        tMin = np.min(self.dockedOpt.TT)
         z = np.linspace(tMin, tMax, endpoint=True)
         YY = range(nCol)
-        XX = range(nRow)
-
-        axes.contourf(YY, XX, self.TT, z)
-        fig.colorbar(axes.contourf(YY, XX, self.TT, z))
+        if self.readSpec.lMax - self.readSpec.lMin == 0:
+            XX = range(len(self.readSpec.L))
+            axes.set_ylabel('Points in Bins')
+        else:
+            XX = self.readSpec.L
+            axes.set_ylabel('RLU (Reciprocal Lattice Unit)')
+        axes.contourf(YY, XX, self.dockedOpt.TT, z)
+        fig.colorbar(axes.contourf(YY, XX, self.dockedOpt.TT, z))
         axes.set_title(title0)
         axes.set_xlabel('array_index (voltage:' + line1 + ')')
-        axes.set_ylabel('spec_pnt: L')
         canvas.draw()
 
-        tab = QtGui.QWidget()
+        tab = QWidget()
         tab.setStatusTip("Raw Data")
-        vbox = QtGui.QVBoxLayout()
+        vbox = QVBoxLayout()
         graphNavigationBar = NavigationToolbar(canvas, self)
         vbox.addWidget(graphNavigationBar)
         vbox.addWidget(canvas)
         tab.setLayout(vbox)
-        self.tabWidget.addTab(tab, "Raw Data")
-        self.tabWidget.setCurrentWidget(tab)
+        name = 'Color Graph Raw Data'
 
-        self.canvasArray.append(canvas)
-        self.figArray.append(fig)
+        self.savingCanvasTabs(tab, name, canvas, fig)
 
     # ----------------------------------------------------------------------------------------------#
-    def PlotLineGraphRawData(self):
-        """This method graphs the raw data into line graphs"""
-        mainGraph = QtGui.QWidget()
+    def GraphUtilRawDataLineGraphs(self, canvas, fig, gTitle, xLabel, yLabel, statTip, tabName, whichGraph):
+        mainGraph = QWidget()
 
-        dpi = 100
-        fig = Figure((3.0, 3.0), dpi=dpi)
-        canvas = FigureCanvas(fig)
         canvas.setParent(mainGraph)
         axes = fig.add_subplot(111)
 
-        data = np.loadtxt(open(self.dockedOpt.fileName))
+        nRow, nCol = self.dockedOpt.fileInfo()
 
-        nRow = data.shape[0]  # Gets the number of rows
-        nCol = data.shape[1]  # Gets the number of columns
-        x = 0
-        for f in range(nCol):
-            if (np.mean(data[:, f]) == 0):
-                pass
-            else:
-                x += 1
-        nCol = x
-
-        self.TT = np.zeros((nRow, nCol))
-        for i in range(nCol):
-            self.TT[:, i] = data[:, i]
-
-        xx = arange(0, nRow)
+        if whichGraph == 'B':
+            xx = range(nRow)
+        elif whichGraph == 'L':
+            xx = self.readSpec.L
 
         for j in range(nCol):
-            yy = self.TT[:, j]
+            yy = self.dockedOpt.TT[:, j]
             axes.plot(xx, yy)
 
-        axes.set_title('Fit for Time Constant')
-        axes.set_xlabel('Bins')
-        axes.set_ylabel('Intensity')
+        axes.set_title(gTitle)
+        axes.set_xlabel(xLabel)
+        axes.set_ylabel(yLabel)
         canvas.draw()
 
-        tab = QtGui.QWidget()
-        tab.setStatusTip("Line Graph of Raw Data")
-        vbox = QtGui.QVBoxLayout()
+        tab = QWidget()
+        tab.setStatusTip(statTip)
+        vbox = QVBoxLayout()
         graphNavigationBar = NavigationToolbar(canvas, self)
         vbox.addWidget(graphNavigationBar)
         vbox.addWidget(canvas)
         tab.setLayout(vbox)
-        self.tabWidget.addTab(tab, "Line Graph Raw Data")
-        self.tabWidget.setCurrentWidget(tab)
 
-        self.canvasArray.append(canvas)
-        self.figArray.append(fig)
+        self.savingCanvasTabs(tab, tabName, canvas, fig)
+
+    # ----------------------------------------------------------------------------------------------#
+    def PlotLineGraphRawDataRLU(self):
+        """This method graphs the raw data into a line graph wiith RLU as x-axis"""
+        fig = Figure((3.0, 3.0), dpi=100)
+        canvas = FigureCanvas(fig)
+
+        gTitle = 'Raw Data in L Constant (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
+        xLabel = 'RLU (Reciprocal Lattice Unit)'
+        yLabel = 'Intensity'
+        statTip = 'Raw Data in RLU (Reciprocal Lattice Unit)'
+        tabName = 'Raw Data RLU'
+
+        self.GraphUtilRawDataLineGraphs(canvas, fig, gTitle, xLabel, yLabel, statTip, tabName, 'L')
+
+    # ----------------------------------------------------------------------------------------------#
+    def PlotLineGraphRawDataBins(self):
+        """This method graphs the raw data into a line graph into bins"""
+        fig = Figure((3.0, 3.0), dpi=100)
+        canvas = FigureCanvas(fig)
+
+        gTitle = 'Raw Data in Bins (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
+        xLabel = 'Bins'
+        yLabel = 'Intensity'
+        statTip = 'Raw Data in Bins'
+        tabName = 'Raw Data Bins'
+
+        self.GraphUtilRawDataLineGraphs(canvas, fig, gTitle, xLabel, yLabel, statTip, tabName, 'B')
+
+    # -----------------------------Creating Report-----------------------------------------------------------#
+    def ReportButton(self):
+        """This button creates a report"""
+        self.reportBtn = QPushButton('Report', self)
+        self.reportBtn.setStatusTip("Creates a report of the chosen data.")
+        self.reportBtn.clicked.connect(self.CreateReport)
+
+    # -------------------------------------------------------------------------------------------------------#
+    def CancelReportButton(self):
+        """This button cancels the creation of a report"""
+        self.cancelReportBtn = QPushButton('Cancel', self)
+        self.cancelReportBtn.setStatusTip("Cancels the creation of the report.")
+        self.cancelReportBtn.clicked.connect(self.reportDialog.close)
+
+    # ------------------------------------------------------------------------------------------------------#
+    def CreateReport(self):
+        self.reportDialog.close()
+        self.ReportSaveDialog()
+        if self.reportFile != "":
+            self.WrittingReport()
+
+    # ------------------------------------------------------------------------------------------------------#
+    def ReportSaveDialog(self):
+        filters = "All files (*.*);;Text files (*txt);;Python files (*.py)"
+        selectedFilters = "Text files (*txt);;Python files (*.py)"
+        self.reportFile, self.reportFileFilter = QFileDialog.getSaveFileName(self, "Save Report", "", selectedFilters)
+    # ------------------------------------------------------------------------------------------------------#
+    def ReportDialog(self):
+        self.reportDialog = QDialog(self)
+        vBox = QVBoxLayout()
+        buttonLayout = QHBoxLayout()
+
+        self.ReportCheckBox()
+        self.CancelReportButton()
+        self.ReportButton()
+
+        buttonLayout.addWidget(self.cancelReportBtn)
+        buttonLayout.addStretch(1)
+        buttonLayout.addWidget(self.reportBtn)
+
+        vBox.addWidget(self.reportGroupBx)
+        vBox.addLayout(buttonLayout)
+
+        self.reportDialog.setWindowTitle("Create Final Report")
+        self.reportDialog.setLayout(vBox)
+        self.reportDialog.exec_()
+
+    # -----------------------------------------------------------------------------------------#
+    def ReportCheckBox(self):
+        """This function contains a group box with check boxes"""
+        self.reportGroupBx = QGroupBox("Select the data")
+
+        self.reportCbGausFit = QCheckBox("Gaussian Fit")
+        self.reportCbLFit = QCheckBox("L Fit")
+        self.reportCbGausFit.setEnabled(False)
+        self.reportCbLFit.setEnabled(False)
+
+        if self.dockedOpt.gausFitStat == True:
+            self.reportCbGausFit.setEnabled(True)
+        if self.dockedOpt.LFitStat == True:
+            self.reportCbLFit.setEnabled(True)
+
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.reportCbGausFit)
+        vbox.addWidget(self.reportCbLFit)
+
+        self.reportGroupBx.setLayout(vbox)
+
+    def WrittingReport(self):
+        """This method writes the data to the report file, calling on the appropriate methods.
+        """
+        _, nCol = self.dockedOpt.fileInfo()
+        reportData = np.zeros((nCol, 0))
+        header = "#H "
+        scanNum = str(self.dockedOpt.specDataList.currentRow() + 1)
+        comment = "#C PVvalue #" + scanNum + "\n"
+
+        if self.reportCbGausFit.isChecked():
+            if self.dockedOpt.onePeakStat == True:
+                header += "Amp Err Position Err Width Err "
+                reportData = np.concatenate((reportData, self.gausFit.OnePkFitData), axis=1)
+            if self.dockedOpt.twoPeakStat == True:
+                header += "Amp Err Amp Err Pos Err Pos Err Wid Err Wid Err "
+                reportData = np.concatenate((reportData, self.gausFit.TwoPkGausFitData), axis=1)
+
+        if self.reportCbLFit.isChecked():
+            if self.dockedOpt.onePeakStat == True:
+                header += "L "
+                # Reshapes the array so that it can be append
+                L = np.reshape(self.gausFit.LPosData, (len(self.gausFit.LPosData), 1))  # Enables array to be appended
+                reportData = np.concatenate((reportData, L), axis=1)
+            if self.dockedOpt.twoPeakStat == True:
+                header += "L1 L2 "
+                L1 = np.reshape(self.gausFit.LPos1Data, (len(self.gausFit.LPos1Data), 1))  # Reshapes to append
+                L2 = np.reshape(self.gausFit.LPos2Data, (len(self.gausFit.LPos2Data), 1))  # Reshapes to append
+                print len(L1)
+                print len(L2)
+                print len(reportData)
+
+                reportData = np.concatenate((reportData, L1, L2), axis=1)
+
+        # Writes to sheet
+        np.savetxt(self.reportFile, reportData, fmt=str('%f'), header=header, comments=comment)
 
 
 def main():
     """Main method"""
-    app = QtGui.QApplication(sys.argv)
+    app = QApplication(sys.argv)
     myMainWindow = MainWindow()
     myMainWindow.show()
     sys.exit(app.exec_())
