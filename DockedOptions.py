@@ -168,7 +168,7 @@ class DockedOption(QDockWidget):
         self.rdOnlyScanSelected.setText("")
         selectedFilter = "All files (*.*);;Python files (*.py)"
         self.fileName, self.fileFilter = QFileDialog.getOpenFileName(self, "Open file for PVvalue #"
-                                                          + str(self.specDataList.currentRow() + 1),
+                                                          + str(self.specDataList.currentRow() + 1), None,
                                                           selectedFilter)
 
         if self.fileOpened == True:

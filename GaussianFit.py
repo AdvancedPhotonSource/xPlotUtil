@@ -580,22 +580,17 @@ class GaussianFitting:
     def graphOnePeakLFitPos(self):
         """This method graphs the Lattice fit position for one peak.
         """
-        fig = Figure((5.0, 4.0), dpi=100)
-        canvas = FigureCanvas(fig)
-
         x = self.getVoltage()
         y = self.LPosData
         xLabel = 'Voltage'
         yLabel = 'L Constant (\u00c5)'
         name = 'Lattice - Position (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
 
-        self.GraphUtilGaussianFitGraphs(canvas, fig, name, x, y, None, xLabel, yLabel, 'L')
+        self.GraphUtilGaussianFitGraphs(name, x, y, None, xLabel, yLabel, 'L')
 
     def graphTwoPeakLFitPos1(self):
         """This method graphs the peak one Lattice fit position for two peak.
         """
-        fig = Figure((5.0, 4.0), dpi=100)
-        canvas = FigureCanvas(fig)
         x = self.getVoltage()
         y = self.LPos1Data
         print x
@@ -604,21 +599,18 @@ class GaussianFitting:
         yLabel = 'L Constant'
         name = 'Lattice - Position #1 (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
 
-        self.GraphUtilGaussianFitGraphs(canvas, fig, name, x, y, None, xLabel, yLabel, 'L')
+        self.GraphUtilGaussianFitGraphs(name, x, y, None, xLabel, yLabel, 'L')
 
     def graphTwoPeakLFitPos2(self):
         """This method graphs the peak two Lattice fit position for two peak.
         """
-        fig = Figure((5.0, 4.0), dpi=100)
-        canvas = FigureCanvas(fig)
-
         x = self.getVoltage()
         y = self.LPos2Data
         xLabel = 'Voltage'
         yLabel = 'L Constant'
         name = 'Lattice - Position #2 (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
 
-        self.GraphUtilGaussianFitGraphs(canvas, fig, name, x, y, None, xLabel, yLabel, 'L')
+        self.GraphUtilGaussianFitGraphs(name, x, y, None, xLabel, yLabel, 'L')
 
     def doLFitPercentChange(self):
         """This function finds the percentage change of the lattice, depending on the peak.
@@ -659,23 +651,20 @@ class GaussianFitting:
         y = self.LPos1PrcChangeData
         xLabel = 'Voltage'
         yLabel = '%-Change'
-        name = 'Lattice %-Change #! (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
+        name = 'Lattice %-Change #1 (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
 
         self.GraphUtilGaussianFitGraphs(name, x, y, None, xLabel, yLabel, 'L')
 
     def percentageChangeLConstantPeakTwo(self):
         """This method graphs the peak two lattice %-change for two peak.
         """
-        fig = Figure((5.0, 4.0), dpi=100)
-        canvas = FigureCanvas(fig)
-
         x = self.getVoltage()
         y = self.LPos2PrcChangeData
         xLabel = 'Voltage'
         yLabel = '%-Change'
         name = 'Lattice %-Change #2 (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
 
-        self.GraphUtilGaussianFitGraphs(canvas, fig, name, x, y, None, xLabel, yLabel, 'L')
+        self.GraphUtilGaussianFitGraphs(name, x, y, None, xLabel, yLabel, 'L')
 
 
 
