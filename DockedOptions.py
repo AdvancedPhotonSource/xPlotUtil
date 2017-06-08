@@ -4,9 +4,10 @@
 Copyright (c) UChicago Argonne, LLC. All rights reserved.
 See LICENSE file.
 
+#C In some methods LFit or L refer to the Lattice Constant not RLU.
 """
 
-# --------------------------------------------------------------------------------------#
+# ---------------------------------------------------------------------------------------------------------------------#
 from __future__ import unicode_literals
 from pylab import *
 from matplotlib.backends import qt_compat
@@ -24,32 +25,38 @@ else:
 
 from spec2nexus.spec import SpecDataFile
 from ReadSpecFile import ReadSpec
+# ---------------------------------------------------------------------------------------------------------------------#
 
 
 class DockedOption(QDockWidget):
+    """Sets up the docked widget main options. """
 
     def __init__ (self, parent=None):
         super(DockedOption, self).__init__(parent)
-        self.fileName = None
+        self.fileName = None  # PVvalue file
+
+        # Initializing other classes
         self.myMainWindow = parent
         self.readSpec = ReadSpec(self)
         self.gausFit = self.readSpec.gausFit
 
+        # Keeps track of when the function has been apply
         self.onePeakStat = False
         self.twoPeakStat = False
         self.fileOpened = False
 
-        # keep track of when the fit has been done
         self.gausFitStat = False
         self.LFitStat = False
+        self.normalizingStat = False
 
 
-        self.TT = [0][0] # 2D array where raw data is stored
+        self.TT = [] # 2D array where raw data is stored
 
-    # --------------------------------------------------------------------------------------------#
+    # ----------------------------------Main Option Functions----------------------------------------------------------#
     def DockMainOptions(self):
-        """Function that creates the dockWidget, Graph Options for fitting one
+        """Function that creates the dockWidget for the Main options.
         """
+
         self.mainOptions = QDockWidget("Main Options", self)
         self.mainOptions.setFloating(False)
         self.mainOptions.setMaximumWidth(320)
@@ -92,26 +99,29 @@ class DockedOption(QDockWidget):
         # Adding the docked widget to the main window
         self.myMainWindow.addDockWidget(Qt.RightDockWidgetArea, self.mainOptions)
 
-    # -----------------------------------------------------------------------------------#
     def restoreMainOptions(self):
+        """This method displays the main options again, if it's not visible.
+        """
         if self.mainOptions.isVisible() == False:
             self.mainOptions.show()
-    # ------------------------------------------------------------------------------------#
+
     def FileNameRdOnlyBox(self):
-        """This method contains a QLineEdit and label that display the selected file
-            next to the browse button"""
+        """This method contains two QLineEdit boxes, set to read only that display the spec file
+        and PVvalue files opened.
+        """
+        # Spec file is display
         self.rdOnlyFileName = QLineEdit()
         self.rdOnlyFileName.setReadOnly(True)
         self.rdOnlyFileName.setTextMargins(0, 0, 10, 0)
         self.rdOnlyFileName.setFixedWidth(125)
 
-        #For the Gaussioan Fit
+        # PVvalue file is displayed
         self.rdOnlyScanSelected = QLineEdit()
         self.rdOnlyScanSelected.setReadOnly(True)
         self.rdOnlyScanSelected.setTextMargins(0, 0, 10, 0)
         self.rdOnlyScanSelected.setFixedWidth(250)
 
-        # Label
+        # Spec Label
         self.fileNameLabel = QLabel()
         self.fileNameLabel.setText("File Name: ")
 
@@ -119,105 +129,71 @@ class DockedOption(QDockWidget):
         self.pvLabel = QLabel()
         self.pvLabel.setText("Scan: ")
 
-    # ------------------------------------------------------------------------------------#
-    def WhichPeakGaussianFit(self):
-        """This function calls on the appropriate method, depending on the amount of peaks"""
-        if self.FileError() == False and  self.gausFitStat == False:
-            chosePeak = self.PeakDialog()
-            if (chosePeak == 'One'):
-                self.gausFit.gausOnePeakInputDialog()
-            elif (chosePeak == 'Two'):
-                self.gausFit.gausTwoPeakInputDialog()
+    def BrowseButton(self):
+        """Function that creates a browse button, connects to the openFile() method.
+        """
+        self.BrowseBtn = QPushButton('Browse', self)
+        self.BrowseBtn.clicked.connect(self.readSpec.openSpecFile)
+        self.BrowseBtn.setStatusTip("Browse and open an existing file")
 
-    # -----------------------------------------------------------------------------------#
+    def GraphDataButton(self):
+        """Function that creates a graph button, connects to the GraphData() method.
+        """
+        self.GraphDataBtn = QPushButton('Graph', self)
+        self.GraphDataBtn.setStatusTip("Graphs the checked boxes")
+        self.GraphDataBtn.clicked.connect(self.plottingFits)
+
+    def SpecDataValueList(self):
+        """This list displays the values/scans of the spec file.
+        """
+        self.specDataList = QListWidget()
+        self.specDataList.itemDoubleClicked.connect(self.readSpec.currentScan)
+
+    # ----------------------------------Opening PVvalue file and such--------------------------------------------------#
     def openFile(self):
+        """This method calls on the openDialog if no file has previously been open or asks
+         the user if it wants to open a new file.
+         """
         if self.fileOpened == False:
             self.openDialog()
         elif self.fileOpened == True:
-            response = self.msgApp("Open New Spec File", "Would you like to open a new spec file?")
+            response = self.msgApp("Open New PVvalue File", "Would you like to open a new PVvalue file?")
             if response == "Y":
                 self.openDialog()
 
     def openDialog(self):
-        """This method allows the user to open the spec file """
+        """This method allows the user to open a new PVvalue file. It also resets some attributes to
+        their original value to enable the fits and other functionality.
+        """
         self.rdOnlyScanSelected.setText("")
-        filters = "All files (*.*);;Python files (*.py)"
         selectedFilter = "All files (*.*);;Python files (*.py)"
         self.fileName, self.fileFilter = QFileDialog.getOpenFileName(self, "Open file for PVvalue #"
-                                                          + str(self.specDataList.currentRow() + 1)
-                                                          , filters, selectedFilter)
+                                                          + str(self.specDataList.currentRow() + 1),
+                                                          selectedFilter)
 
         if self.fileOpened == True:
             self.mainOptions.close()
             self.DockMainOptions()
-            self.rdOnlyFileName.setText(self.readSpec.specFileName)
-            self.rdOnlyFileName.setStatusTip(self.readSpec.specFileName)
-            specFile = SpecDataFile(self.readSpec.specFileName)
-            self.readSpec.loadScans(specFile.scans)
-            self.myMainWindow.LFit.setEnabled(False)
+            self.specFileInfo()
 
-        # Makes sure a file has been opened before changing attributes
+        # Makes sure a file has been opened before changing attributes to orginal value
         if os.path.isfile(self.fileName) == True:
-            if self.fileOpened == True:
-                self.specDataList.setCurrentRow(self.readSpec.currentRow)
-                self.onePeakStat = False
-                self.twoPeakStat = False
+            self.specDataList.setCurrentRow(self.readSpec.currentRow)
+            self.onePeakStat = False
+            self.twoPeakStat = False
+            self.normalizingStat = False
             self.gausFitStat = False
             self.LFitStat = False
             self.rdOnlyScanSelected.setStatusTip(self.fileName)
             self.rdOnlyScanSelected.setText(self.fileName)
             self.fileOpened = True
             self.gausFit.continueGraphingEachFit = True
+            self.loadFile()
 
-
-    # -----------------------------------------------------------------------------------#
-    def PeakDialog(self):
-        """Method that allows the user to choose which peak they are fitting"""
-        peakList = ['One', 'Two']
-        text, ok = QInputDialog.getItem(self, 'Peak Fit', 'Choose Peak: ', peakList)
-
-        if ok:
-            return text
-
-    # ------------------------------------------------------------------------------------#
-    def msgApp(self, title, msg):
-        userInfo = QMessageBox.question(self, title, msg, QMessageBox.Yes | QMessageBox.No)
-
-        if userInfo == QMessageBox.Yes:
-            return "Y"
-        if userInfo == QMessageBox.No:
-            return "N"
-        self.close()
-
-    # -----------------------------------------------------------------------------------#
-    def resetxPlot(self):
-        self.mainOptions.close()
-        self.DockMainOptions()
-        self.gausFit.continueGraphingEachFit = True
-
-        self.readSpec.specFileOpened = False
-        self.readSpec.specFileName = None
-
-        self.fileName = None
-        self.onePeakStat = False
-        self.twoPeakStat = False
-        self.fileOpened = False
-        self.gausFitStat = False
-        self.LFitStat = False
-        self.myMainWindow.LFit.setEnabled(False)
-        index = len(self.myMainWindow.canvasArray)
-        i = 0
-        j = 0
-        while i < index:
-            self.myMainWindow.canvasArray.pop(j)
-            self.myMainWindow.figArray.pop(j)
-            gc.collect()
-            self.myMainWindow.tabWidget.removeTab(j)
-            i += 1
-    # ------------------------------------------------------------------------------------#
-    def fileInfo(self):
-        """This method is used to get the rows and columns of the data. It also sets the
-        array with the raw data, which is the TT"""
+    def loadFile(self):
+        """This method is used to load the PVvalue file into an array. Displays error message, if file could
+        not be loaded into 2d array.
+        """
         try:
             data = np.loadtxt(open(self.fileName))
 
@@ -235,61 +211,116 @@ class DockedOption(QDockWidget):
 
             for i in range(nCol):
                 self.TT[:, i] = data[:, i]
-
-            return nRow, nCol
-        except ValueError or TypeError:
-            QMessageBox.warning(self.myMainWindow,"Warning", "Please make sure you're opening the correct"
-                                                                   " file and it follows the appropriate format.")
+        except:
+            QMessageBox.warning(self.myMainWindow, "Warning", "Please make sure you're opening the correct"
+                                                              " file and it follows the appropriate format.")
             self.mainOptions.close()
             self.DockMainOptions()
-            self.rdOnlyFileName.setText(self.readSpec.specFileName)
-            self.rdOnlyFileName.setStatusTip(self.readSpec.specFileName)
-            specFile = SpecDataFile(self.readSpec.specFileName)
-            self.readSpec.loadScans(specFile.scans)
-            self.myMainWindow.LFit.setEnabled(False)
+            self.specFileInfo()
             self.fileOpened = False
-            return 0, 0
-    # ------------------------------------------------------------------------------------#
-    def BrowseButton(self):
-        """Function that creates a browse method, connects to the openFile() method"""
-        # Button next to the FileNameRdOnly label and LineEdit
-        self.BrowseBtn = QPushButton('Browse', self)
-        self.BrowseBtn.clicked.connect(self.readSpec.openSpecFile)
-        self.BrowseBtn.setStatusTip("Browse and open an existing file")
 
-    def GraphDataButton(self):
-        """Function that creates a graph button, connects to the GraphData() method"""
-        self.GraphDataBtn = QPushButton('Graph', self)
-        self.GraphDataBtn.setStatusTip("Graphs the checked boxes")
-        self.GraphDataBtn.clicked.connect(self.plottingFits)
-
-    # --------------------------------------------------------------------------------------------#
-    def SpecDataValueList(self):
-        """This list displays the values/scans of the spec file
+    def fileInfo(self):
+        """ This method returns the points (rows) and bins (columns) from the raw data file sheet.
+        :return: Number of points and bins
         """
-        self.specDataList = QListWidget()
-        self.specDataList.itemDoubleClicked.connect(self.readSpec.currentScan)
+        nRow = self.TT.shape[0]  # Gets the number of rows
+        nCol = self.TT.shape[1]
 
-    # --------------------------------------------------------------------------------------------#
+        return nRow, nCol
+
+    def specFileInfo(self):
+        """This method sets the name, status tip for the spec file, and loads the scan to the list
+        from the spec file.
+        """
+        self.rdOnlyFileName.setText(self.readSpec.specFileName)
+        self.rdOnlyFileName.setStatusTip(self.readSpec.specFileName)
+        specFile = SpecDataFile(self.readSpec.specFileName)
+        self.readSpec.loadScans(specFile.scans)
+
+    # ------------------------------------What Peak?-------------------------------------------------------------------#
+    def WhichPeakGaussianFit(self):
+        """This function asks the user for the amount of peaks. Then calls on the appropriate dialog, depending on
+        the peak number.
+        """
+        if self.FileError() == False and self.gausFitStat == False:
+            chosePeak = self.PeakDialog()
+            if (chosePeak == 'One'):
+                self.gausFit.gausOnePeakInputDialog()
+            elif (chosePeak == 'Two'):
+                self.gausFit.gausTwoPeakInputDialog()
+
+    def PeakDialog(self):
+        """Method that creates a dialog, so that the user can peak the number of peaks.
+        :return: Number of peaks
+        """
+        peakList = ['One', 'Two']
+        text, ok = QInputDialog.getItem(self, 'Peak Fit', 'Choose Peak: ', peakList)
+
+        if ok:
+            return text
+
+    # ----------------------------------Misc. Functions----------------------------------------------------------------#
+    def msgApp(self, title, msg):
+        """Generic message box
+        :param title: Title displayed in message box
+        :param msg: message display and box
+        """
+        userInfo = QMessageBox.question(self, title, msg, QMessageBox.Yes | QMessageBox.No)
+
+        if userInfo == QMessageBox.Yes:
+            return "Y"
+        if userInfo == QMessageBox.No:
+            return "N"
+        self.close()
+
+    def resetxPlot(self):
+        """This function basically resets xPlot Util. It closes and removes the grap[hs created and
+        changes various attributes to their original value to enable fits and other functionality.
+        """
+        self.mainOptions.close()
+        self.DockMainOptions()
+        self.gausFit.continueGraphingEachFit = True
+
+        self.readSpec.specFileOpened = False
+        self.readSpec.specFileName = None
+
+        self.fileName = None
+        self.onePeakStat = False
+        self.twoPeakStat = False
+        self.fileOpened = False
+        self.gausFitStat = False
+        self.LFitStat = False
+        self.normalizingStat = False
+
+        # Closes and removes the graphs created
+        index = len(self.myMainWindow.canvasArray)
+        i = 0
+        j = 0
+        while i < index:
+            self.myMainWindow.canvasArray.pop(j)
+            self.myMainWindow.figArray.pop(j)
+            gc.collect()
+            self.myMainWindow.tabWidget.removeTab(j)
+            i += 1
+
     def FileError(self):
+        """This method checks that a PVvalue file has been opened or selected.
+        :return: truth value of PVvalue file error
+        """
         if self.fileName is "" or self.fileName is None:
-            QMessageBox.warning(self, "Error - No File", "There is no data to graph."
-                                                               " Make sure a file has been open.")
             return True
         else:
             if os.path.isfile(self.fileName) == False:
-                QMessageBox.warning(self, "Error - No File", "There is no data to graph."
-                                                                   " Make sure a file has been open.")
                 return True
             else:
                 if self.rdOnlyScanSelected.text() == "":
-                    QMessageBox.warning(self, "Error", "Please select a PVvalue.")
+                    QMessageBox.warning(self, "Error - No Scan Selected", "Please select a scan.")
                 else:
                     return False
 
-    # --------------------------------------------------------------------------------------------#
+    # --------------------------------Tree Graphing Options------------------------------------------------------------#
     def DataGraphingRawOptionsTree(self):
-        """This method initializes the tree withthe raw data
+        """This method initializes the tree branch for the raw data graphing options.
         """
         # Initialization of the main tree
         self.graphingOptionsTree =QTreeWidget()
@@ -310,7 +341,7 @@ class DockedOption(QDockWidget):
 
         # Line Graph in L-Constant
         self.lineGraphLBranch = QTreeWidgetItem(self.rawDataTopBranch)
-        self.lineGraphLBranch.setText(0, "Line Graph (L-Constant)")
+        self.lineGraphLBranch.setText(0, "Line Graph (RLU)")
         self.lineGraphLBranch.setFlags(self.lineGraphLBranch.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
         self.lineGraphLBranch.setCheckState(0, Qt.Unchecked)
 
@@ -321,8 +352,10 @@ class DockedOption(QDockWidget):
         self.lineGraphBinsBranch.setCheckState(0, Qt.Unchecked)
 
         self.graphingOptionsTree.addTopLevelItem(self.rawDataTopBranch)
-    # ---------------------------------------------------------------------------------------------------------------#
+
     def GraphingGaussianOptionsTree(self):
+        """This method initializes the tree branch for the gaussian fit graphing options.
+        """
         # Gaussian Fit Top Branch
         self.gaussianFitTopBranch = QTreeWidgetItem()
         self.gaussianFitTopBranch.setText(0, "Gaussian Fit")
@@ -418,27 +451,28 @@ class DockedOption(QDockWidget):
 
         #Adding the top branch to the graphing options tree
         self.graphingOptionsTree.addTopLevelItem(self.gaussianFitTopBranch)
-        self.myMainWindow.LFit.setEnabled(True)
 
-    # ---------------------------------------------------------------------------------------------------------------#
-    def GraphingLOptionsTree(self):
-        if self.LFitStat == False:
+
+    def GraphingLatticeOptionsTree(self):
+        """This method initializes the tree branch for the lattice fit graphing options"""
+        if self.LFitStat == False and self.gausFitStat == True:
             # L Fit Top Branch
             self.LFitTopBranch = QTreeWidgetItem()
-            self.LFitTopBranch.setText(0, "L Fit")
+            self.LFitTopBranch.setText(0, "Lattice Fit")
             self.LFitTopBranch.setFlags(self.LFitTopBranch.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
             """L FitData Children, depending on the peak"""
             if self.onePeakStat == True:
                 # RLU Graph
                 self.onePeakRLU = QTreeWidgetItem(self.LFitTopBranch)
-                self.onePeakRLU.setText(0, "RLU")
+                self.onePeakRLU.setText(0, "Lattice")
                 self.onePeakRLU.setFlags(self.onePeakRLU.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
                 self.onePeakRLU.setCheckState(0, Qt.Unchecked)
 
                 # %Change Graph
                 self.onePeakRLUPrcChange = QTreeWidgetItem(self.LFitTopBranch)
-                self.onePeakRLUPrcChange.setText(0, "RLU %-Change")
-                self.onePeakRLUPrcChange.setFlags(self.onePeakRLUPrcChange.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
+                self.onePeakRLUPrcChange.setText(0, "Lattice %-Change")
+                self.onePeakRLUPrcChange.setFlags(self.onePeakRLUPrcChange.flags() | Qt.ItemIsTristate |
+                                                  Qt.ItemIsUserCheckable)
                 self.onePeakRLUPrcChange.setCheckState(0, Qt.Unchecked)
 
             elif self.twoPeakStat == True:
@@ -454,36 +488,39 @@ class DockedOption(QDockWidget):
 
                 # RLU Graph Peak one
                 self.RLUPeakOne = QTreeWidgetItem(peakOneBranch)
-                self.RLUPeakOne.setText(0, "RLU")
+                self.RLUPeakOne.setText(0, "Lattice")
                 self.RLUPeakOne.setFlags(self.RLUPeakOne.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
                 self.RLUPeakOne.setCheckState(0, Qt.Unchecked)
 
                 # %Change Graph Peak One
                 self.RLUPrcChangePeakOne = QTreeWidgetItem(peakOneBranch)
-                self.RLUPrcChangePeakOne.setText(0, "RLU %-Change")
-                self.RLUPrcChangePeakOne.setFlags(self.RLUPrcChangePeakOne.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
+                self.RLUPrcChangePeakOne.setText(0, "Lattice %-Change")
+                self.RLUPrcChangePeakOne.setFlags(self.RLUPrcChangePeakOne.flags() | Qt.ItemIsTristate |
+                                                  Qt.ItemIsUserCheckable)
                 self.RLUPrcChangePeakOne.setCheckState(0, Qt.Unchecked)
 
                 # RLU Graph Peak two
                 self.RLUPeakTwo = QTreeWidgetItem(peakTwoBranch)
-                self.RLUPeakTwo.setText(0, "RLU")
+                self.RLUPeakTwo.setText(0, "Lattice")
                 self.RLUPeakTwo.setFlags(self.RLUPeakTwo.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
                 self.RLUPeakTwo.setCheckState(0, Qt.Unchecked)
 
                 # %Change Graph Peak two
                 self.RLUPrcChangePeakTwo = QTreeWidgetItem(peakTwoBranch)
-                self.RLUPrcChangePeakTwo.setText(0, "RLU %-Change")
+                self.RLUPrcChangePeakTwo.setText(0, "Lattice")
                 self.RLUPrcChangePeakTwo.setFlags(self.RLUPrcChangePeakTwo.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
                 self.RLUPrcChangePeakTwo.setCheckState(0, Qt.Unchecked)
 
             # Adding the top branch to the graphing options tree
             self.graphingOptionsTree.addTopLevelItem(self.LFitTopBranch)
             self.gausFit.doLFit()
+            self.gausFit.doLFitPercentChange()
             self.LFitStat = True
 
-    # -------------------------------------------------------------------------------------------------------#
+    # ------------------------------------------Plotting Methods-------------------------------------------------------#
     def plottingFits(self):
-        """This function calls on the appropriate method to graph for one or two peaks.
+        """This function calls on the appropriate method to plot the graphs, taking into account the fit and
+        number of peaks.
         """
         if self.FileError() == False:
             # Raw Data
@@ -497,38 +534,40 @@ class DockedOption(QDockWidget):
                 self.myMainWindow.PlotLineGraphRawDataRLU()
                 self.lineGraphLBranch.setCheckState(0, 0)
 
+            # Gaussian Fit
             if self.onePeakStat == True:
                 self.graphingOnePeak()
             elif self.twoPeakStat == True:
                 self.graphingTwoPeak()
 
-    # -------------------------------------------------------------------------------------------------------#
     def graphingOnePeak(self):
-        try:
-            if self.onePeakAmplitude.checkState(0) == 2:
-                self.gausFit.graphOnePeakAmplitude()
-                self.onePeakAmplitude.setCheckState(0, 0)
-            if self.onePeakPosition.checkState(0) == 2:
-                self.gausFit.graphOnePeakPosition()
-                self.onePeakPosition.setCheckState(0, 0)
-            if self.onePeakWidth.checkState(0) == 2:
-                self.gausFit.graphOnePeakWidth()
-                self.onePeakWidth.setCheckState(0, 0)
-            if self.onePeakAmpxWid.checkState(0) == 2:
-                self.gausFit.graphOnePeakAmplitudeXWidth()
-                self.onePeakAmpxWid.setCheckState(0, 0)
-            if self.LFitStat == True:
-                if self.onePeakRLU.checkState(0) == 2:
-                    self.gausFit.graphOnePeakLFitPos()
-                    self.onePeakRLU.setCheckState(0, 0)
-                if self.onePeakRLUPrcChange.checkState(0) == 2:
-                    self.gausFit.percentageChangeLConstantOnePeak()
-                    self.onePeakRLUPrcChange.setCheckState(0, 0)
-        except:
-            pass
+        """This method calls on the appropriate method to plot one peak graphs.
+        """
+        if self.onePeakAmplitude.checkState(0) == 2:
+            self.gausFit.graphOnePeakAmplitude()
+            self.onePeakAmplitude.setCheckState(0, 0)
+        if self.onePeakPosition.checkState(0) == 2:
+            self.gausFit.graphOnePeakPosition()
+            self.onePeakPosition.setCheckState(0, 0)
+        if self.onePeakWidth.checkState(0) == 2:
+            self.gausFit.graphOnePeakWidth()
+            self.onePeakWidth.setCheckState(0, 0)
+        if self.onePeakAmpxWid.checkState(0) == 2:
+            self.gausFit.graphOnePeakAmplitudeXWidth()
+            self.onePeakAmpxWid.setCheckState(0, 0)
 
-    # -------------------------------------------------------------------------------------------------------#
+        # Lattice Fit
+        if self.LFitStat == True:
+            if self.onePeakRLU.checkState(0) == 2:
+                self.gausFit.graphOnePeakLFitPos()
+                self.onePeakRLU.setCheckState(0, 0)
+            if self.onePeakRLUPrcChange.checkState(0) == 2:
+                self.gausFit.percentageChangeLConstantOnePeak()
+                self.onePeakRLUPrcChange.setCheckState(0, 0)
+
     def graphingTwoPeak(self):
+        """This method calls on the appropriate method to plot two peak graphs.
+        """
         # Peak One
         if self.amplitudePeakOne.checkState(0) == 2:
             self.gausFit.graphTwoPeakAmplitude1()
@@ -556,6 +595,8 @@ class DockedOption(QDockWidget):
         if self.ampXWidPeakTwo.checkState(0) == 2:
             self.gausFit.graphTwoPeakAmplitudeXWidth2()
             self.ampXWidPeakTwo.setCheckState(0, 0)
+
+        # Lattice Fit
         if self.LFitStat == True:
             if self.RLUPeakOne.checkState(0) == 2:
                 self.gausFit.graphTwoPeakLFitPos1()
@@ -570,22 +611,6 @@ class DockedOption(QDockWidget):
                 self.gausFit.percentageChangeLConstantPeakTwo()
                 self.RLUPrcChangePeakTwo.setCheckState(0, 0)
 
-    # ----------------------------------------------------------------------------------------------------------#
-    def resetingComponents(self):
-        """This method will be either erased or change. Here are the variables used in the program that need to be
-        reset.
-        """
-        self.gausFit.continueGraphingEachFit = True
-
-        self.readSpec.specFileOpened = False
-        self.readSpec.specFileName = None
-
-        self.fileName = None
-        self.onePeakStat = False
-        self.twoPeakStat = False
-        self.fileOpened = False
-        self.gausFitStat = False
-        self.LFitStat = False
 
 
 
