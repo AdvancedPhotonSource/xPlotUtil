@@ -30,6 +30,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.ticker import FormatStrFormatter
+from AlgebraicExpressions import AlgebraicExpress
 # ---------------------------------------------------------------------------------------------------------------------#
 
 class GaussianFitting:
@@ -45,6 +46,7 @@ class GaussianFitting:
         self.readSpec = parent
         self.dockedOpt = self.readSpec.dockedOpt
         self.myMainWindow = self.dockedOpt.myMainWindow
+        self.algebraExp = AlgebraicExpress(parent=self)
         self.continueGraphingEachFit = True #Boolean to stop on Each fit graphing
 
     # --------------------------------Gaussian Fit---------------------------------------------------------------------#
@@ -62,6 +64,7 @@ class GaussianFitting:
             fit_error = param[1]
             self.OnePkFitData[j, :] = (fit_result[0], fit_error[0], fit_result[1], fit_error[1], fit_result[2],
                                        fit_error[2])
+            print self.OnePkFitData
 
     def OnePkFitting(self, xx, yy):
         """Gaussian Fit for one Peak.
@@ -70,10 +73,15 @@ class GaussianFitting:
         :return: fitted data and error
         """
         try:
+            x1 = xx[0]
+            x2 = xx[-1]
+            y1 = yy[0]
+            y2 = yy[-1]
+            m = (y2-y1)/(x2-x1)
+            b = y2-m*x2
             mean = sum(xx * yy) / sum(yy)  # note this correction
             sig = np.sqrt(sum(yy * (xx - mean) ** 2)) / sqrt(sum(yy))
-            bg0 = (yy[max(xx)] + yy[0]) / 2  # min value of yy
-            popt, pcov = curve_fit(self.gaus1, xx, yy, p0=[self.onePeakAmp, self.onePeakPos, self.onePeakWid, bg0])
+            popt, pcov = curve_fit(self.gaus1, xx, yy, p0=[self.onePeakAmp, self.onePeakPos, self.onePeakWid, b, m])
             perr = np.sqrt(np.diag(pcov))
             self.graphEachFitRawData(xx, yy, popt, 1)
             return popt, perr
@@ -82,8 +90,8 @@ class GaussianFitting:
             QMessageBox.warning(self.myMainWindow, "Error", "Please make sure to input realistic guesses.\n"
                                                              "Reset or reopen the PVvaulue file.")
 
-    def gaus1(self, x, a, x0, sigma, b):
-        return a * exp(-(x - x0) ** 2 / (2 * sigma ** 2)) + b
+    def gaus1(self, x, a, x0, sigma, b, m):
+        return a * exp(-(x - x0) ** 2 / (2 * sigma ** 2)) + b + m * x
 
     def gausOnePeakInputDialog(self):
         """One Peak dialog where user inputs guesses for the gaussian fit.
@@ -162,11 +170,18 @@ class GaussianFitting:
               :return: fitted data and error
         """
         try:
+            x1 = xx[0]
+            x2 = xx[-1]
+            y1 = yy[0]
+            y2 = yy[-1]
+            m = (y2 - y1) / (x2 - x1)
+            b = y2 - m * x2
             mean = sum(xx * yy) / sum(yy)
             sig = np.sqrt(sum(yy * (xx - mean) ** 2)) / sqrt(sum(yy))
-            bg0 = (yy[max(xx)] + yy[0]) / 2
+            # bg0 = (yy[max(xx)] + yy[0]) / 2
+            m = 0
             popt, pcov = curve_fit(self.gaus2, xx, yy, p0=[self.twoPeak1Amp, self.twoPeak2Amp, self.twoPeak1Pos, self.twoPeak2Pos,
-                                                           self.twoPeak1Wid, self.twoPeak2Wid, bg0])
+                                                           self.twoPeak1Wid, self.twoPeak2Wid, b, m])
             perr = np.sqrt(np.diag(pcov))
             self.graphEachFitRawData(xx, yy, popt, 2)
             return popt, perr
@@ -174,9 +189,9 @@ class GaussianFitting:
              QMessageBox.warning(self.myMainWindow, "Warning", "Please make sure to input realistic guesses.\n"
                                                                      "Reset or reopen the PVvaulue file.")
 
-    def gaus2(self, x, a1, a2, x01, x02, sigma1, sigma2, background):
+    def gaus2(self, x, a1, a2, x01, x02, sigma1, sigma2, background, m):
         return a1 * exp(-(x - x01) ** 2 / (2 * sigma1 ** 2))\
-               + a2 *exp(-(x - x02) ** 2 / (2 * sigma2 ** 2)) + background
+               + a2 *exp(-(x - x02) ** 2 / (2 * sigma2 ** 2)) + background + m * x
 
     def gausTwoPeakInputDialog(self):
         """Two Peak dialog where user inputs guesses for the gaussian fit.
@@ -593,8 +608,6 @@ class GaussianFitting:
         """
         x = self.getVoltage()
         y = self.LPos1Data
-        print x
-        print y
         xLabel = 'Voltage'
         yLabel = 'L Constant'
         name = 'Lattice - Position #1 (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'

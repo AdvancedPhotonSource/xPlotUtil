@@ -39,6 +39,7 @@ class DockedOption(QDockWidget):
         self.myMainWindow = parent
         self.readSpec = ReadSpec(self)
         self.gausFit = self.readSpec.gausFit
+        self.algebraExp = self.gausFit.algebraExp
 
         # Keeps track of when the function has been apply
         self.onePeakStat = False
@@ -175,6 +176,7 @@ class DockedOption(QDockWidget):
             self.mainOptions.close()
             self.DockMainOptions()
             self.specFileInfo()
+            self.myMainWindow.LatticeFitAction.setEnabled(False)
 
         # Makes sure a file has been opened before changing attributes to orginal value
         if os.path.isfile(self.fileName) == True:
@@ -281,6 +283,8 @@ class DockedOption(QDockWidget):
         self.DockMainOptions()
         self.gausFit.continueGraphingEachFit = True
 
+        self.myMainWindow.LatticeFitAction.setEnabled(False)
+
         self.readSpec.specFileOpened = False
         self.readSpec.specFileName = None
 
@@ -339,17 +343,11 @@ class DockedOption(QDockWidget):
         self.colorGraphBranch.setFlags(self.colorGraphBranch.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
         self.colorGraphBranch.setCheckState(0, Qt.Unchecked)
 
-        # Line Graph in L-Constant
-        self.lineGraphLBranch = QTreeWidgetItem(self.rawDataTopBranch)
-        self.lineGraphLBranch.setText(0, "Line Graph (RLU)")
-        self.lineGraphLBranch.setFlags(self.lineGraphLBranch.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
-        self.lineGraphLBranch.setCheckState(0, Qt.Unchecked)
-
-        # Line Graph in L-Constant
-        self.lineGraphBinsBranch =QTreeWidgetItem(self.rawDataTopBranch)
-        self.lineGraphBinsBranch.setText(0, "Line Graph (Bins)")
-        self.lineGraphBinsBranch.setFlags(self.lineGraphBinsBranch.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
-        self.lineGraphBinsBranch.setCheckState(0, Qt.Unchecked)
+        # Line Graph
+        self.lineGraphBranch = QTreeWidgetItem(self.rawDataTopBranch)
+        self.lineGraphBranch.setText(0, "Line Graph")
+        self.lineGraphBranch.setFlags(self.lineGraphBranch.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
+        self.lineGraphBranch.setCheckState(0, Qt.Unchecked)
 
         self.graphingOptionsTree.addTopLevelItem(self.rawDataTopBranch)
 
@@ -452,6 +450,8 @@ class DockedOption(QDockWidget):
         #Adding the top branch to the graphing options tree
         self.graphingOptionsTree.addTopLevelItem(self.gaussianFitTopBranch)
 
+        self.myMainWindow.LatticeFitAction.setEnabled(True)
+
 
     def GraphingLatticeOptionsTree(self):
         """This method initializes the tree branch for the lattice fit graphing options"""
@@ -527,12 +527,9 @@ class DockedOption(QDockWidget):
             if self.colorGraphBranch.checkState(0) == 2:
                 self.myMainWindow.PlotColorGraphRawData()
                 self.colorGraphBranch.setCheckState(0, 0)
-            if self.lineGraphBinsBranch.checkState(0) == 2:
-                self.myMainWindow.PlotLineGraphRawDataBins()
-                self.lineGraphBinsBranch.setCheckState(0, 0)
-            if self.lineGraphLBranch.checkState(0) == 2:
-                self.myMainWindow.PlotLineGraphRawDataRLU()
-                self.lineGraphLBranch.setCheckState(0, 0)
+            if self.lineGraphBranch.checkState(0) == 2:
+                self.myMainWindow.PlotLineGraphRawData()
+                self.lineGraphBranch.setCheckState(0, 0)
 
             # Gaussian Fit
             if self.onePeakStat == True:

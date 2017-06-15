@@ -34,6 +34,7 @@ class ReadSpec:
         self.dockedOpt = parent
         self.myMainWindow = self.dockedOpt.myMainWindow
         self.gausFit = GaussianFitting(self)
+        self.algebraExp = self.gausFit.algebraExp
         self.specFileOpened = False
         self.specFileName = None
 
@@ -72,6 +73,7 @@ class ReadSpec:
                 self.specFileOpened = True
                 self.dockedOpt.fileOpened = False
                 self.continueGraphingEachFit = True
+                self.myMainWindow.LatticeFitAction.setEnabled(False)
         except:
             print("Please make sure the spec file has the correct format.")
 
@@ -99,15 +101,15 @@ class ReadSpec:
         if self.dockedOpt.fileOpened == True:
             try:
                 if os.path.isfile(self.dockedOpt.fileName):
-                    self.normalizers = [] # Array that will contain possible normalizer
-                    # Getting the L information for the particular PVValue
-                    lattice = self.scans[self.scan].data["L"]
+                    self.normalizers = [] # Array that will contain possible normalizers
+                    self.L = []  # Array of the RLU
 
-                    self.lMin = lattice[0]
-                    self.lMax = lattice[-1]
+                    self.L = self.scans[self.scan].data["L"]
+                    self.lMin = self.L[0]
+                    self.lMax = self.L[-1]
+
                     k = self.scans[self.scan].G["G1"].split(" ")
                     self.lElement = float(k[2])
-                    self.getRLU()
 
                     # Gets possible normalizer values
                     for key in self.scans[self.scan].data.keys():
@@ -117,6 +119,7 @@ class ReadSpec:
             except:
                 print("Please make sure the PVValue has the correct information in the spec file.")
 
+    ''' # Current using the L from the spec file
     def getRLU(self):
         """This function gets the Lattice for the particular file, using the lattice max, lattice min and the
         number of points on each column for the raw data. """
@@ -131,6 +134,7 @@ class ReadSpec:
                 RLU += round(adjustment, 4)
                 self.L.append(round(RLU, 5))
                 count += 1
+    '''
 
     def NormalizerDialog(self):
         """This method creates a dialog with dynamically created radio buttons from the spec file, which allow the
@@ -185,5 +189,102 @@ class ReadSpec:
         except:
             QMessageBox.warning(self.myMainWindow, "Dimension Error", "Please make sure the selected normalizer "
                                                                       "has the same row dimension as the raw data.")
+
+    def possibleRawDataLineGraphXAxis(self):
+        """This function finds the possible x-axis for the raw data line graph. Also adds Bins to
+        the list.
+        :return: list of possible x-axis
+        """
+        linePlotXAxis = []
+        for key in self.scans[self.scan].L:
+            if key == 'L':
+                linePlotXAxis.append(key)
+                linePlotXAxis.append(str('Bins'))
+                break
+            else:
+                linePlotXAxis.append(key)
+        return linePlotXAxis
+
+    def RawDataLineGraphXAxisDialog(self):
+        """This method creates a dialog with dynamically created radio buttons from the spec file, which allow the
+        user to pick which x-axis to use for the raw data line graph.
+        """
+        self.xAxisRawDataDialog = QDialog(self.myMainWindow)
+        self.xAxisRawDataDialog.setModal(True)
+        dialogBox = QVBoxLayout()
+        buttonLayout = QHBoxLayout()
+        vBox = QVBoxLayout()
+
+        groupBox = QGroupBox("Select x-axis")
+        self.possibleRawDataXBtnGroup = QButtonGroup(groupBox)
+        xAxis = self.possibleRawDataLineGraphXAxis()
+        for x in xAxis:
+            xRB = QRadioButton(x)
+            self.possibleRawDataXBtnGroup.addButton(xRB)
+            vBox.addWidget(xRB)
+        groupBox.setLayout(vBox)
+
+        ok = QPushButton("Ok")
+        cancel = QPushButton("Cancel")
+
+        cancel.clicked.connect(self.xAxisRawDataDialog.close)
+        ok.clicked.connect(self.xAxisRawDataDialog.accept)
+
+        buttonLayout.addWidget(cancel)
+        buttonLayout.addStretch(1)
+        buttonLayout.addWidget(ok)
+
+        dialogBox.addWidget(groupBox)
+        dialogBox.addLayout(buttonLayout)
+
+        self.xAxisRawDataDialog.setWindowTitle("Raw data line graph x-axis")
+        self.xAxisRawDataDialog.setLayout(dialogBox)
+        self.xAxisRawDataDialog.resize(200, 100)
+        self.xAxisRawDataDialog.exec_()
+
+    def getRawDataLinePlotElements(self):
+        """This function selects the x-axis depending on what the user selected, as well as other
+        criteria for the raw data line graph. Returns a list of zeros if no radio button was selected.
+        :return: list of elements to plot the raw data line graph
+        """
+        self.RawDataLineGraphXAxisDialog()
+
+        if self.xAxisRawDataDialog.result() == self.xAxisRawDataDialog.Accepted and self.possibleRawDataXBtnGroup.checkedButton() != None:
+            xAxis = self.possibleRawDataLineGraphXAxis()
+            radioBtn = self.possibleRawDataXBtnGroup.buttons()
+
+            # Gets the x-axis for the line graph
+            i = 0
+            for btn in radioBtn:
+                if btn == self.possibleRawDataXBtnGroup.checkedButton():
+                    if xAxis[i] == 'L':
+                        x = self.scans[self.scan].data[xAxis[i]]
+                        gTitle = 'Raw Data in RLU (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
+                        xLabel = 'RLU (Reciprocal Lattice Unit)'
+                        statTip = 'Raw Data in RLU (Reciprocal Lattice Unit)'
+                        tabName = 'Raw Data (RLU)'
+                    elif xAxis[i] == 'Bins':
+                        nRow, nCol = self.dockedOpt.fileInfo()
+                        x = range(nRow)
+                        gTitle = 'Raw Data in Bins (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
+                        xLabel = 'Points'
+                        statTip = 'Raw Data in Bins'
+                        tabName = 'Raw Data (Bins)'
+                    else:
+                        x = self.scans[self.scan].data[xAxis[i]]
+                        gTitle = 'Raw Data in ' + xAxis[i] + ' (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
+                        xLabel = xAxis[i]
+                        statTip = 'Raw Data in ' + xAxis[i]
+                        tabName = 'Raw Data (' + xAxis[i] + ')'
+                else:
+                    i += 1
+            self.xAxisRawDataDialog.close()
+            return x, gTitle, xLabel, statTip, tabName
+        else:
+            self.xAxisRawDataDialog.close()
+            return 0, 0, 0, 0, 0
+
+
+
 
 

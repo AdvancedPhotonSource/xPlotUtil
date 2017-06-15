@@ -42,9 +42,10 @@ class MainWindow (QMainWindow):
         self.setMinimumSize(800, 700)
         self.setWindowTitle("xPlot Util")
         self.setWindowIcon(QIcon('Icons/Graph.png'))
-        self.dockedOpt = DockedOption(parent = self)
+        self.dockedOpt = DockedOption(parent=self)
         self.gausFit = self.dockedOpt.gausFit
         self.readSpec = self.dockedOpt.readSpec
+        self.algebraExp = self.gausFit.algebraExp
         self.canvasArray = []
         self.figArray = []
 
@@ -110,12 +111,18 @@ class MainWindow (QMainWindow):
         self.fileMenu.addAction(self.exitAction)
         self.graphMenu.addAction(self.mainOptionsAction)
         self.graphMenu.addAction(self.normalizeAction)
+        self.algebreicExpMenu = self.graphMenu.addMenu("Algebraic Expression")
         self.graphMenu.addAction(self.GaussianFitAction)
         self.graphMenu.addAction(self.LatticeFitAction)
         self.graphMenu.addSeparator()
         self.graphMenu.addAction(self.reportAction)
+        self.algebreicExpMenu.addAction(self.th2ThAction)
+        self.algebreicExpMenu.addAction(self.weightingExpAction)
+        self.algebreicExpMenu.addAction(self.singleValueIndexAction)
         self.helpMenu.addSeparator()  
         self.helpMenu.addAction(self.aboutAction)
+
+        self.LatticeFitAction.setEnabled(False)
 
     def CreateActions(self):
         """Function that creates the actions used in the menu bar
@@ -140,6 +147,12 @@ class MainWindow (QMainWindow):
                                   triggered =self.dockedOpt.GraphingLatticeOptionsTree)
         self.normalizeAction = QAction('Normalize', self, statusTip ='Normalizes the data',
                                        triggered=self.readSpec.NormalizerDialog)
+        self.th2ThAction = QAction('\u03B82\u03B8', self, statusTip='Theta to Theta expression.',
+                                       triggered=self.algebraExp.plotTh2ThExp)
+        self.singleValueIndexAction = QAction('Single Value Index', self, statusTip='Single value index expression.',
+                                   triggered=self.algebraExp.plotSingleValueIndex)
+        self.weightingExpAction = QAction('Weighting', self, statusTip='Weighting algebraic expression.',
+                                              triggered=self.algebraExp.weightingExp)
         self.aboutAction = QAction(QIcon('about.png'), 'A&bout',
                                          self, shortcut="Ctrl+B", statusTip="Displays info about the graph program",
                                          triggered=self.aboutHelp)
@@ -252,33 +265,14 @@ class MainWindow (QMainWindow):
 
         self.savingCanvasTabs(tab, tabName, canvas, fig)
 
-    def PlotLineGraphRawDataRLU(self):
-        """This method graphs the raw data into a line graph with RLU as x-axis.
+    def PlotLineGraphRawData(self):
+        """This method graphs the raw data into a line graph with the x-axis the user picks.
         """
-        gTitle = 'Raw Data in RLU (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
-        xLabel = 'RLU (Reciprocal Lattice Unit)'
-        xx = self.readSpec.L
-        yLabel = 'Intensity'
-        statTip = 'Raw Data in RLU (Reciprocal Lattice Unit)'
-        tabName = 'Raw Data RLU'
-        whichG = 'L'
+        xx, gTitle, xLabel, statTip, tabName = self.readSpec.getRawDataLinePlotElements()
 
-        self.GraphUtilRawDataLineGraphs(gTitle, xLabel, yLabel, statTip, tabName, xx, whichG)
+        if gTitle != 0:
+             self.GraphUtilRawDataLineGraphs(gTitle, xLabel, 'Intensity', statTip, tabName, xx, 'L')
 
-    def PlotLineGraphRawDataBins(self):
-        """This method graphs the raw data into a line graph into bins.
-        """
-        nRow, nCol = self.dockedOpt.fileInfo()
-
-        gTitle = 'Raw Data in Bins (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
-        xLabel = 'Points'
-        xx = range(nRow)
-        yLabel = 'Intensity'
-        statTip = 'Raw Data in Bins'
-        tabName = 'Raw Data Bins'
-        whichG = 'L'
-
-        self.GraphUtilRawDataLineGraphs(gTitle, xLabel, yLabel, statTip, tabName, xx, whichG)
 
     # -----------------------------------Creating Report---------------------------------------------------------------#
     def ReportButton(self):
