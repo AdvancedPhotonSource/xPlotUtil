@@ -12,20 +12,17 @@ import sys
 import os
 import numpy as np
 from pylab import *
+
 from matplotlib.backends import qt_compat
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationToolbar
 import gc
 
-use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
-if use_pyside:
-    from PySide.QtGui import *
-    from PySide.QtCore import *
-else:
-    from PyQt5.QtGui import *
-    from PyQt5.QtCore import *
-    from PyQt5.QtWidgets import *
+
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
 
 from DockedOptions import DockedOption
 # ---------------------------------------------------------------------------------------------------------------------#
@@ -54,6 +51,9 @@ class MainWindow (QMainWindow):
         self.dockedOpt.DockMainOptions()
         self.setCentralWidget(self.tabWidget)
         self.setTabPosition(Qt.RightDockWidgetArea | Qt.LeftDockWidgetArea, QTabWidget.North)
+
+        self.contrastMax = 0
+        self.contrastMin = 0
 
     # -----------------------------Central Tab Widget------------------------------------------------------------------#
     def windowTabs(self):
@@ -101,24 +101,23 @@ class MainWindow (QMainWindow):
         """
         self.myStatusBar = QStatusBar()
         self.setStatusBar(self.myStatusBar)
-        self.myStatusBar.showMessage('Ready', 30000)
+        self.myStatusBar.showMessage('Ready', 3000)
 
         self.CreateActions()
         self.CreateMenus()
         self.fileMenu.addAction(self.openAction)
+        self.exportMenu = self.fileMenu.addMenu("Export")
+        self.exportMenu.addAction(self.reportAction)
+        self.exportMenu.addAction(self.binGausFitReportAction)
         self.fileMenu.addAction(self.resetAction)
         self.fileMenu.addSeparator()
         self.fileMenu.addAction(self.exitAction)
         self.graphMenu.addAction(self.mainOptionsAction)
         self.graphMenu.addAction(self.normalizeAction)
-        self.algebreicExpMenu = self.graphMenu.addMenu("Algebraic Expression")
+        self.graphMenu.addAction(self.algebraicExpAction)
         self.graphMenu.addAction(self.GaussianFitAction)
         self.graphMenu.addAction(self.LatticeFitAction)
         self.graphMenu.addSeparator()
-        self.graphMenu.addAction(self.reportAction)
-        self.algebreicExpMenu.addAction(self.th2ThAction)
-        self.algebreicExpMenu.addAction(self.weightingExpAction)
-        self.algebreicExpMenu.addAction(self.singleValueIndexAction)
         self.helpMenu.addSeparator()  
         self.helpMenu.addAction(self.aboutAction)
 
@@ -139,6 +138,8 @@ class MainWindow (QMainWindow):
                                   triggered=self.dockedOpt.resetxPlot)
         self.reportAction = QAction('Report', self, statusTip="Create a report of the data",
                                          triggered=self.ReportDialog)
+        self.binGausFitReportAction = QAction('Bin Gaussian Fit', self, statusTip="Create a report from bin fitted data",
+                                              triggered=self.gausFit.EachFitDataReport)
         self.mainOptionsAction = QAction('Main Options', self, statusTip="Main options for xPlot Util",
                                              triggered=self.dockedOpt.restoreMainOptions)
         self.GaussianFitAction= QAction('Gaussian Fit',self, statusTip="Dock the graphing options" ,
@@ -147,12 +148,8 @@ class MainWindow (QMainWindow):
                                   triggered =self.dockedOpt.GraphingLatticeOptionsTree)
         self.normalizeAction = QAction('Normalize', self, statusTip ='Normalizes the data',
                                        triggered=self.readSpec.NormalizerDialog)
-        self.th2ThAction = QAction('\u03B82\u03B8', self, statusTip='Theta to Theta expression.',
-                                       triggered=self.algebraExp.plotTh2ThExp)
-        self.singleValueIndexAction = QAction('Single Value Index', self, statusTip='Single value index expression.',
-                                   triggered=self.algebraExp.plotSingleValueIndex)
-        self.weightingExpAction = QAction('Weighting', self, statusTip='Weighting algebraic expression.',
-                                              triggered=self.algebraExp.weightingExp)
+        self.algebraicExpAction = QAction('Algebraic Expressions', self, statusTip='Algebraic expressions.',
+                                       triggered=self.dockedOpt.DataGraphingAlgebraicExpOptionsTree)
         self.aboutAction = QAction(QIcon('about.png'), 'A&bout',
                                          self, shortcut="Ctrl+B", statusTip="Displays info about the graph program",
                                          triggered=self.aboutHelp)
@@ -203,20 +200,116 @@ class MainWindow (QMainWindow):
             ampl = words[6]
         line1 = '[-' + str(ampl) + '] --> [0] --> [+' + str(ampl) + '] --> [0] --> [-' + str(ampl) + '] '
 
-        if self.readSpec.lMax - self.readSpec.lMin == 0:
-            xx = range(len(self.readSpec.L))
-            yLabel = 'Points'
-        else:
-            xx = self.readSpec.L
-            yLabel = "RLU (Reciprocal Lattice Unit)"
+        xx = self.readSpec.L
+        yLabel = "RLU (Reciprocal Lattice Unit)"
 
-        gTitle = 'Raw Data Color Graph (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
+        gTitle = 'Raw Data Color Graph (Scan#: ' + self.readSpec.scan + ')'
         statTip = "Raw Data Color Graph"
         xLabel = 'Bins (voltage:' + line1 + ')'
         tabName = 'Raw Data Color Graph'
         whichG = 'C'
 
         self.GraphUtilRawDataLineGraphs(gTitle, xLabel, yLabel, statTip, tabName, xx, whichG)
+
+    def ColorGraphContrastDialog(self):
+        """This method creates a dialog with dynamically created radio buttons from the spec file, which allow the
+        user to pick which chamber was used to normalize.
+        """
+        # if self.dockedOpt.normalizingStat == False and self.dockedOpt.FileError() == False :
+        self.contrastDialog = QDialog(self)
+        inputForm = QFormLayout()
+        buttonLayout = QHBoxLayout()
+        hBox = QHBoxLayout()
+        hBox1 = QHBoxLayout()
+
+        maxContrastLbl = QLabel("Max Intensity:")
+        self.maxContrastSpin = QDoubleSpinBox()
+        self.maxContrastSpin.setMaximum(np.max(self.dockedOpt.TT) + 1000)
+        self.maxContrastSpin.setMinimum(np.min(self.dockedOpt.TT) - 999)
+        self.maxContrastSpin.setValue(np.max(self.dockedOpt.TT))
+        self.maxContrastSpin.valueChanged.connect(self.ContrastSpinMaxValue)
+        self.contrastMax = self.maxContrastSpin.value()
+        self.maxContrastSlider = QSlider(Qt.Horizontal)
+        self.maxContrastSlider.setMaximum(np.max(self.dockedOpt.TT) + 1000)
+        self.maxContrastSlider.setMinimum(np.min(self.dockedOpt.TT) - 999)
+        self.maxContrastSlider.setValue(np.max(self.dockedOpt.TT))
+        self.maxContrastSlider.valueChanged.connect(self.maxContrastSpin.setValue)
+
+        minContrastLbl = QLabel("Min Intensity: ")
+        self.minContrastSpin = QDoubleSpinBox()
+        self.minContrastSpin.setMaximum(np.max(self.dockedOpt.TT) + 999)
+        self.minContrastSpin.setMinimum(np.min(self.dockedOpt.TT) - 1000)
+        self.minContrastSpin.setValue(np.min(self.dockedOpt.TT))
+        self.minContrastSpin.valueChanged.connect(self.ContrastSpinMinValue)
+        self.contrastMin = self.minContrastSpin.value()
+        self.minContrastSlider = QSlider(Qt.Horizontal)
+        self.minContrastSlider.setMaximum(np.max(self.dockedOpt.TT) + 999)
+        self.minContrastSlider.setMinimum(np.min(self.dockedOpt.TT) - 1000)
+        self.minContrastSlider.setValue(np.min(self.dockedOpt.TT))
+        self.minContrastSlider.valueChanged.connect(self.minContrastSpin.setValue)
+        self.minContrastSlider.setTickInterval(4)
+
+        hBox.addWidget(maxContrastLbl)
+        hBox.addWidget(self.maxContrastSpin)
+        hBox.addWidget(self.maxContrastSlider)
+        hBox1.addWidget(minContrastLbl)
+        hBox1.addWidget(self.minContrastSpin)
+        hBox1.addWidget(self.minContrastSlider)
+
+        okBtn = QPushButton("Ok")
+        okBtn.clicked.connect(self.ReplottingColorGraph)
+        cancelBtn = QPushButton("Cancel")
+        cancelBtn.clicked.connect(self.contrastDialog.close)
+
+        buttonLayout.addWidget(cancelBtn)
+        buttonLayout.addStretch(1)
+        buttonLayout.addWidget(okBtn)
+
+        inputForm.addRow(hBox)
+        inputForm.addRow(hBox1)
+        inputForm.addRow(buttonLayout)
+
+        self.contrastDialog.setWindowTitle("Adjust contrast")
+        self.contrastDialog.setLayout(inputForm)
+        self.contrastDialog.resize(300, 100)
+        self.contrastDialog.exec_()
+
+    def ContrastSpinMinValue(self, value):
+        if value >= self.maxContrastSpin.value():
+            self.minContrastSpin.setValue(self.contrastMin)
+            self.minContrastSlider.setValue(self.contrastMin)
+        else:
+            self.contrastMin = value
+
+    def ContrastSpinMaxValue(self, value):
+        if value <= self.minContrastSpin.value():
+            self.maxContrastSpin.setValue(self.contrastMax)
+            self.maxContrastSlider.setValue(self.contrastMax)
+        else:
+            self.contrastMax = value
+
+    def ReplottingColorGraph(self):
+        self.contrastDialog.close()
+        max = self.maxContrastSpin.value()
+        min = self.minContrastSpin.value()
+        ind = self.tabWidget.currentIndex()
+        self.figArray[ind].clear()
+        axes = self.figArray[ind].add_subplot(111)
+        nRow = self.dockedOpt.TT.shape[0]
+        nCol = self.dockedOpt.TT.shape[1]
+
+        z = np.linspace(min, max)
+        xx = self.readSpec.L
+        yy = range(nCol)
+        axes.contourf(yy, xx, self.dockedOpt.TT, z, cmap='jet')
+        self.figArray[ind].colorbar(axes.contourf(yy, xx, self.dockedOpt.TT, z, cmap='jet'))
+        gTitle = 'Raw Data Color Graph (Scan#: ' + self.readSpec.scan + ')'
+        xLabel = 'Bins'
+        yLabel = "RLU (Reciprocal Lattice Unit)"
+        axes.set_title(gTitle)
+        axes.set_xlabel(xLabel)
+        axes.set_ylabel(yLabel)
+        self.canvasArray[ind].draw()
 
     def GraphUtilRawDataLineGraphs(self, gTitle, xLabel, yLabel, statTip, tabName, xx, whichG):
         """Generic graph method that helps graph the raw data.
@@ -245,10 +338,14 @@ class MainWindow (QMainWindow):
         elif whichG == 'C':
             tMax = np.max(self.dockedOpt.TT)
             tMin = np.min(self.dockedOpt.TT)
-            z = np.linspace(tMin, tMax, endpoint=True)
-            YY = range(nCol)
-            axes.contourf(YY, xx, self.dockedOpt.TT, z)
-            fig.colorbar(axes.contourf(YY, xx, self.dockedOpt.TT, z))
+            z = np.linspace(tMin, tMax)
+            yy = range(nCol)
+
+            axes.contourf(yy, xx, self.dockedOpt.TT, z, cmap='jet')
+            fig.colorbar(axes.contourf(yy, xx, self.dockedOpt.TT, z, cmap='jet'))
+
+            contrastBtn = QPushButton("Contrast")
+            contrastBtn.clicked.connect(self.ColorGraphContrastDialog)
 
         axes.set_title(gTitle)
         axes.set_xlabel(xLabel)
@@ -260,6 +357,11 @@ class MainWindow (QMainWindow):
         vbox = QVBoxLayout()
         graphNavigationBar = NavigationToolbar(canvas, self)
         vbox.addWidget(graphNavigationBar)
+        if whichG == 'C':
+            hBox = QHBoxLayout()
+            hBox.addStretch()
+            hBox.addWidget(contrastBtn)
+            vbox.addLayout(hBox)
         vbox.addWidget(canvas)
         tab.setLayout(vbox)
 
@@ -269,10 +371,8 @@ class MainWindow (QMainWindow):
         """This method graphs the raw data into a line graph with the x-axis the user picks.
         """
         xx, gTitle, xLabel, statTip, tabName = self.readSpec.getRawDataLinePlotElements()
-
         if gTitle != 0:
              self.GraphUtilRawDataLineGraphs(gTitle, xLabel, 'Intensity', statTip, tabName, xx, 'L')
-
 
     # -----------------------------------Creating Report---------------------------------------------------------------#
     def ReportButton(self):
@@ -294,15 +394,12 @@ class MainWindow (QMainWindow):
         """
         if self.reportCbGausFit.isChecked() or self.reportCbLFit.isChecked():
             self.reportDialog.close()
-            self.ReportSaveDialog()
+            selectedFilters = ".txt"
+            self.reportFile, self.reportFileFilter = QFileDialog.getSaveFileName(self, "Save Report", "",
+                                                                                 selectedFilters)
             if self.reportFile != "":
+                self.reportFile += self.reportFileFilter
                 self.WritingReport()
-
-    def ReportSaveDialog(self):
-        """Save file dialog for the report file.
-        """
-        selectedFilters = "Text files (*txt)"
-        self.reportFile, self.reportFileFilter = QFileDialog.getSaveFileName(self, "Save Report", "", selectedFilters)
 
     def ReportDialog(self):
         """Dialog that allows the user to select the data it wants on the report.
@@ -341,7 +438,6 @@ class MainWindow (QMainWindow):
         if self.dockedOpt.LFitStat == True:
             self.reportCbLFit.setEnabled(True)
 
-
         vbox = QVBoxLayout()
         vbox.addWidget(self.reportCbGausFit)
         vbox.addWidget(self.reportCbLFit)
@@ -349,12 +445,13 @@ class MainWindow (QMainWindow):
         self.reportGroupBx.setLayout(vbox)
 
     def WritingReport(self):
-        """This method writes the data to the report file, calling on the appropriate methods.
+        """This method writes the data to the report file, calling on the appropriate methods. It's important to
+        note that the report can only contain data from the gaussian fit and the lattice fit.
         """
         _, nCol = self.dockedOpt.fileInfo()
         reportData = np.zeros((nCol, 0))
         header = "#H "
-        scanNum = str(self.dockedOpt.specDataList.currentRow() + 1)
+        scanNum = self.readSpec.scan
         comment = "#C PVvalue #" + scanNum + "\n"
 
         if self.reportCbGausFit.isChecked():
@@ -383,7 +480,6 @@ class MainWindow (QMainWindow):
 
         # Writes to sheet
         np.savetxt(self.reportFile, reportData, fmt=str('%f'), header=header, comments=comment)
-
 
 def main():
     """Main method.

@@ -13,14 +13,10 @@ from pylab import *
 from matplotlib.backends import qt_compat
 import os
 from GaussianFit import GaussianFitting
-use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
-if use_pyside:
-    from PySide.QtGui import *
-    from PySide.QtCore import *
-else:
-    from PyQt5.QtGui import *
-    from PyQt5.QtCore import *
-    from PyQt5.QtWidgets import *
+
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
 
 from spec2nexus.spec import SpecDataFile
 # ---------------------------------------------------------------------------------------------------------------------#
@@ -54,6 +50,11 @@ class ReadSpec:
             if response == "Y":
                 self.openSpecDialog()
 
+    def getPVNumKey(self, text):
+        h = text.split('.')
+        return int(h[1])
+
+
     def openSpecDialog(self):
         """This method creates a file dialog to open the spec file. Once the file has been open it resets
         various attributes to their original value to initialize/reestablish functionality.
@@ -64,18 +65,24 @@ class ReadSpec:
                                                                                  None, selectedFilter)
             # Makes sure a file has been opened
             if os.path.isfile(self.specFileName):
+                # Gets the PVvalue files in the directory
+                self.specDirectory = os.path.dirname(self.specFileName)
+                self.PvFiles = [f for f in os.listdir(self.specDirectory) if f.find("PVvalue") == 0]
+                self.PvFiles.sort(key=self.getPVNumKey)
+
                 self.dockedOpt.mainOptions.close()
                 self.dockedOpt.DockMainOptions()
                 self.dockedOpt.gausFitStat = False
                 self.dockedOpt.LFitStat = False
                 self.dockedOpt.normalizingStat = False
+                self.algebraicExpStat = False
                 self.dockedOpt.specFileInfo()
                 self.specFileOpened = True
                 self.dockedOpt.fileOpened = False
                 self.continueGraphingEachFit = True
                 self.myMainWindow.LatticeFitAction.setEnabled(False)
         except:
-            print("Please make sure the spec file has the correct format.")
+             print("Please make sure the directory follows the proper format, including the spec and PVvalue files.")
 
     def loadScans(self, scans):
         """Loads the scan into the specDataList
@@ -83,19 +90,23 @@ class ReadSpec:
         """
         self.scans = scans
         scanKeys = self.scans.keys()
-
-        scanKeys.sort(key=int)  # Sorts the scans in alphabetical order
+        scanKeys.sort(key=int)  # Sorts the scans in order lowest-greater
         for scan in scanKeys:
-            PValue = 'PVvalue #' + str(scans[scan].scanNum)
-            self.dockedOpt.specDataList.addItem(PValue)
+            for file in self.PvFiles:
+                f = file.split('.')
+                if f[1] == scan:
+                    PValue = 'PVvalue #' + str(scans[scan].scanNum)
+                    self.dockedOpt.specDataList.addItem(PValue)
 
     def currentScan(self):
         """This method calls on the open file dialog to open the PVvalue file. It gets the required data
         from the  spec file for the PVvalue/scan.
         """
-        self.scan = str(self.dockedOpt.specDataList.currentRow() + 1)
+        scan = self.PvFiles[self.dockedOpt.specDataList.currentRow()].split(".")
+        self.scan = scan[1]
         self.currentRow = self.dockedOpt.specDataList.currentRow()
-        self.dockedOpt.openFile()
+        fileName = self.specDirectory + "/" + self.PvFiles[self.currentRow]
+        self.dockedOpt.openFile(fileName)
 
         # Making sure the file of the PVvalue has been opened
         if self.dockedOpt.fileOpened == True:
@@ -185,7 +196,7 @@ class ReadSpec:
                         self.normalizer = self.scans[self.scan].data[norm]
                         self.normalizer = np.reshape(self.normalizer, (len(self.normalizer), 1))
                         self.dockedOpt.TT = np.divide(self.dockedOpt.TT, self.normalizer)
-                        self.dockedOpt.normalizingStat == True
+                        self.dockedOpt.normalizingStat = True
         except:
             QMessageBox.warning(self.myMainWindow, "Dimension Error", "Please make sure the selected normalizer "
                                                                       "has the same row dimension as the raw data.")
@@ -259,20 +270,20 @@ class ReadSpec:
                 if btn == self.possibleRawDataXBtnGroup.checkedButton():
                     if xAxis[i] == 'L':
                         x = self.scans[self.scan].data[xAxis[i]]
-                        gTitle = 'Raw Data in RLU (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
+                        gTitle = 'Raw Data in RLU (Scan#: ' + self.scan + ')'
                         xLabel = 'RLU (Reciprocal Lattice Unit)'
                         statTip = 'Raw Data in RLU (Reciprocal Lattice Unit)'
                         tabName = 'Raw Data (RLU)'
                     elif xAxis[i] == 'Bins':
                         nRow, nCol = self.dockedOpt.fileInfo()
                         x = range(nRow)
-                        gTitle = 'Raw Data in Bins (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
+                        gTitle = 'Raw Data in Bins (Scan#: ' + self.scan + ')'
                         xLabel = 'Points'
                         statTip = 'Raw Data in Bins'
                         tabName = 'Raw Data (Bins)'
                     else:
                         x = self.scans[self.scan].data[xAxis[i]]
-                        gTitle = 'Raw Data in ' + xAxis[i] + ' (Scan#: ' + str(self.dockedOpt.specDataList.currentRow() + 1) + ')'
+                        gTitle = 'Raw Data in ' + xAxis[i] + ' (Scan#: ' + self.scan + ')'
                         xLabel = xAxis[i]
                         statTip = 'Raw Data in ' + xAxis[i]
                         tabName = 'Raw Data (' + xAxis[i] + ')'

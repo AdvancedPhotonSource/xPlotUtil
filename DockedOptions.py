@@ -14,14 +14,9 @@ from matplotlib.backends import qt_compat
 import os
 import gc
 
-use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
-if use_pyside:
-    from PySide.QtGui import *
-    from PySide.QtCore import *
-else:
-    from PyQt5.QtGui import *
-    from PyQt5.QtCore import *
-    from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
 
 from spec2nexus.spec import SpecDataFile
 from ReadSpecFile import ReadSpec
@@ -49,6 +44,7 @@ class DockedOption(QDockWidget):
         self.gausFitStat = False
         self.LFitStat = False
         self.normalizingStat = False
+        self.algebraicExpStat = False
 
 
         self.TT = [] # 2D array where raw data is stored
@@ -124,7 +120,7 @@ class DockedOption(QDockWidget):
 
         # Spec Label
         self.fileNameLabel = QLabel()
-        self.fileNameLabel.setText("File Name: ")
+        self.fileNameLabel.setText("Spec File: ")
 
         # PvValue label
         self.pvLabel = QLabel()
@@ -148,44 +144,39 @@ class DockedOption(QDockWidget):
         """This list displays the values/scans of the spec file.
         """
         self.specDataList = QListWidget()
-        self.specDataList.itemDoubleClicked.connect(self.readSpec.currentScan)
+        self.specDataList.itemDoubleClicked.connect(self.openPVFile)
 
     # ----------------------------------Opening PVvalue file and such--------------------------------------------------#
-    def openFile(self):
+    def openPVFile(self):
         """This method calls on the openDialog if no file has previously been open or asks
          the user if it wants to open a new file.
          """
         if self.fileOpened == False:
-            self.openDialog()
+            self.readSpec.currentScan()
         elif self.fileOpened == True:
-            response = self.msgApp("Open New PVvalue File", "Would you like to open a new PVvalue file?")
+            response = self.msgApp("New PVvalue File", "Would you like to open the new selected PVvalue file?")
             if response == "Y":
-                self.openDialog()
+                self.readSpec.currentScan()
 
-    def openDialog(self):
+    def openFile(self, fileName):
         """This method allows the user to open a new PVvalue file. It also resets some attributes to
         their original value to enable the fits and other functionality.
         """
-        self.rdOnlyScanSelected.setText("")
-        selectedFilter = "All files (*.*);;Python files (*.py)"
-        self.fileName, self.fileFilter = QFileDialog.getOpenFileName(self, "Open file for PVvalue #"
-                                                          + str(self.specDataList.currentRow() + 1), None,
-                                                          selectedFilter)
+        self.fileName = fileName
 
-        if self.fileOpened == True:
+        # Makes sure a file has been opened before changing attributes to orginal value
+        if os.path.isfile(self.fileName) == True:
             self.mainOptions.close()
             self.DockMainOptions()
             self.specFileInfo()
             self.myMainWindow.LatticeFitAction.setEnabled(False)
-
-        # Makes sure a file has been opened before changing attributes to orginal value
-        if os.path.isfile(self.fileName) == True:
             self.specDataList.setCurrentRow(self.readSpec.currentRow)
             self.onePeakStat = False
             self.twoPeakStat = False
             self.normalizingStat = False
             self.gausFitStat = False
             self.LFitStat = False
+            self.algebraicExpStat = False
             self.rdOnlyScanSelected.setStatusTip(self.fileName)
             self.rdOnlyScanSelected.setText(self.fileName)
             self.fileOpened = True
@@ -198,7 +189,6 @@ class DockedOption(QDockWidget):
         """
         try:
             data = np.loadtxt(open(self.fileName))
-
             nRow = data.shape[0]  # Gets the number of rows
             nCol = data.shape[1]  # Gets the number of columns
             x = 0
@@ -295,6 +285,7 @@ class DockedOption(QDockWidget):
         self.gausFitStat = False
         self.LFitStat = False
         self.normalizingStat = False
+        self.algebraicExpStat = False
 
         # Closes and removes the graphs created
         index = len(self.myMainWindow.canvasArray)
@@ -327,7 +318,7 @@ class DockedOption(QDockWidget):
         """This method initializes the tree branch for the raw data graphing options.
         """
         # Initialization of the main tree
-        self.graphingOptionsTree =QTreeWidget()
+        self.graphingOptionsTree = QTreeWidget()
         self.graphingOptionsTree.setHeaderLabel("Graphing Options")
 
         """Initialization of the top level Fits"""
@@ -351,13 +342,47 @@ class DockedOption(QDockWidget):
 
         self.graphingOptionsTree.addTopLevelItem(self.rawDataTopBranch)
 
+    def DataGraphingAlgebraicExpOptionsTree(self):
+        """This method initializes the tree branch for the algebraic expression graphing options.
+        """
+        if self.algebraicExpStat == False and self.fileOpened == True:
+            # Algebraic Expressions Top Branch
+            self.algebraicExpTopBranch = QTreeWidgetItem()
+            self.algebraicExpTopBranch.setText(0, "Algebraic Expressions")
+            self.algebraicExpTopBranch.setFlags(self.algebraicExpTopBranch.flags() | Qt.ItemIsTristate |
+                                                Qt.ItemIsUserCheckable)
+
+            # Single Value Index
+            self.singleValueIndexBranch = QTreeWidgetItem(self.algebraicExpTopBranch)
+            self.singleValueIndexBranch.setText(0, "Single Value Index")
+            self.singleValueIndexBranch.setFlags(self.singleValueIndexBranch.flags() | Qt.ItemIsTristate |
+                                                 Qt.ItemIsUserCheckable)
+            self.singleValueIndexBranch.setCheckState(0, Qt.Unchecked)
+
+            # Th2Th Graph
+            self.th2ThBranch = QTreeWidgetItem(self.algebraicExpTopBranch)
+            self.th2ThBranch.setText(0, "\u03B82\u03B8")
+            self.th2ThBranch.setFlags(self.th2ThBranch.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
+            self.th2ThBranch.setCheckState(0, Qt.Unchecked)
+
+            # Weighting Graph
+            self.weightingBranch = QTreeWidgetItem(self.algebraicExpTopBranch)
+            self.weightingBranch.setText(0, "Weighting")
+            self.weightingBranch.setFlags(self.weightingBranch.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
+            self.weightingBranch.setCheckState(0, Qt.Unchecked)
+
+            self.algebraicExpStat = True
+            self.algebraExp.singularValueDecomposition()
+            self.graphingOptionsTree.addTopLevelItem(self.algebraicExpTopBranch)
+
     def GraphingGaussianOptionsTree(self):
         """This method initializes the tree branch for the gaussian fit graphing options.
         """
         # Gaussian Fit Top Branch
         self.gaussianFitTopBranch = QTreeWidgetItem()
         self.gaussianFitTopBranch.setText(0, "Gaussian Fit")
-        self.gaussianFitTopBranch.setFlags(self.gaussianFitTopBranch.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
+        self.gaussianFitTopBranch.setFlags(self.gaussianFitTopBranch.flags() | Qt.ItemIsTristate |
+                                           Qt.ItemIsUserCheckable)
 
         if self.twoPeakStat == True:
             """Gaussian Fit Children"""
@@ -531,6 +556,16 @@ class DockedOption(QDockWidget):
                 self.myMainWindow.PlotLineGraphRawData()
                 self.lineGraphBranch.setCheckState(0, 0)
 
+            if self.algebraicExpStat == True:
+                if self.singleValueIndexBranch.checkState(0) == 2:
+                    self.algebraExp.plotSingleValueIndex()
+                    self.singleValueIndexBranch.setCheckState(0, 0)
+                if self.th2ThBranch.checkState(0) == 2:
+                    self.algebraExp.plotTh2ThExp()
+                    self.th2ThBranch.setCheckState(0, 0)
+                if self.weightingBranch.checkState(0) == 2:
+                    self.algebraExp.plotWeightingExp()
+                    self.weightingBranch.setCheckState(0, 0)
             # Gaussian Fit
             if self.onePeakStat == True:
                 self.graphingOnePeak()
