@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: xPlotUtil
+Version: 0.1.2
+Summary: The program provides a GUI for the user to graph the data in different forms, normalize and fit it.
+Home-page: https://github.com/AdvancedPhotonSource/xPlotUtil
+Author: Phaulo C. Escalante
+Author-email: escalante.phaulo@outlook.com
+License: See LICENSE File
+Description: UNKNOWN
+Platform: any

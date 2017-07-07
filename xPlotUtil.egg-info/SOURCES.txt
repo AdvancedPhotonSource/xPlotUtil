@@ -1,0 +1,15 @@
+setup.py
+Scripts/xPlotUtil
+Scripts/xPlotUtil.bat
+xPlotUtil/PlotWindow.py
+xPlotUtil/__init__.py
+xPlotUtil.egg-info/PKG-INFO
+xPlotUtil.egg-info/SOURCES.txt
+xPlotUtil.egg-info/dependency_links.txt
+xPlotUtil.egg-info/requires.txt
+xPlotUtil.egg-info/top_level.txt
+xPlotUtil/Source/AlgebraicExpressions.py
+xPlotUtil/Source/DockedOptions.py
+xPlotUtil/Source/GaussianFit.py
+xPlotUtil/Source/ReadSpecFile.py
+xPlotUtil/Source/__init__.py

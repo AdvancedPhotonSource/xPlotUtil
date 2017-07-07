@@ -1,0 +1,5 @@
+spec2nexus
+matplotlib
+numpy
+future
+peakutils

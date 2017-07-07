@@ -9,23 +9,20 @@ See LICENSE file.
 """
 # ---------------------------------------------------------------------------------------------------------------------#
 from __future__ import unicode_literals
-import sys
-import numpy as np
-import os
-from pylab import *
-from peakutils import peak
-from matplotlib.backends import qt_compat
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
 
-from scipy.optimize import curve_fit
-from scipy import exp
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from PyQt5.QtWidgets import *
 from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
 from matplotlib.ticker import FormatStrFormatter
-from AlgebraicExpressions import AlgebraicExpress
+from peakutils import peak
+from pylab import *
+from scipy import exp
+from scipy.optimize import curve_fit
+
+from xPlotUtil.Source.AlgebraicExpressions import AlgebraicExpress
+
+
 # ---------------------------------------------------------------------------------------------------------------------#
 
 class GaussianFitting:
@@ -48,48 +45,48 @@ class GaussianFitting:
     def OnePeakFitting(self):
         """Calls on the gaussian fit function for one peak and saves fitted data in array.
         """
-        nRow, nCol = self.dockedOpt.fileInfo()
+        try:
+            nRow, nCol = self.dockedOpt.fileInfo()
 
-        self.binFitData = zeros((nRow, 0))
-        self.OnePkFitData = zeros((nCol, 6))  # Creates the empty 2D List
-        for j in range(nCol):
-            col_data = self.dockedOpt.TT[:, j]
-            xx = arange(0, len(col_data))
-            param = self.OnePkFitting(xx, col_data)
-            fit_result = param[0]
-            fit_error = param[1]
-            self.OnePkFitData[j, :] = (fit_result[0], fit_error[0], fit_result[1], fit_error[1], fit_result[2],
-                                       fit_error[2])
+            self.binFitData = zeros((nRow, 0))
+            self.OnePkFitData = zeros((nCol, 6))  # Creates the empty 2D List
+            for j in range(nCol):
+                col_data = self.dockedOpt.TT[:, j]
+                xx = arange(0, len(col_data))
+                param = self.onePkFitting(xx, col_data)
+                fit_result = param[0]
+                fit_error = param[1]
+                self.OnePkFitData[j, :] = (fit_result[0], fit_error[0], fit_result[1], fit_error[1], fit_result[2],
+                                           fit_error[2])
+            return False
+        except:
+            QMessageBox.warning(self.myMainWindow, "Error", "Please make sure the guesses are realistic when fitting.")
+            return True
 
-    def OnePkFitting(self, xx, yy):
+    def onePkFitting(self, xx, yy):
         """Gaussian Fit for one Peak.
         :param xx: x-value
         :param yy: y-values
         :return: fitted data and error
         """
-        try:
-            x1 = xx[0]
-            x2 = xx[-1]
-            y1 = yy[0]
-            y2 = yy[-1]
-            m = (y2-y1)/(x2-x1)
-            b = y2-m*x2
-            mean = sum(xx * yy) / sum(yy)  # note this correction
-            sig = np.sqrt(sum(yy * (xx - mean) ** 2)) / sqrt(sum(yy))
-            popt, pcov = curve_fit(self.gaus1, xx, yy, p0=[self.onePeakAmp, self.onePeakPos, self.onePeakWid, b, m])
-            perr = np.sqrt(np.diag(pcov))
+        x1 = xx[0]
+        x2 = xx[-1]
+        y1 = yy[0]
+        y2 = yy[-1]
+        m = (y2-y1)/(x2-x1)
+        b = y2-m*x2
+        mean = sum(xx * yy) / sum(yy)  # note this correction
+        sig = np.sqrt(sum(yy * (xx - mean) ** 2)) / sqrt(sum(yy))
+        popt, pcov = curve_fit(self.gaus1, xx, yy, p0=[self.onePeakAmp, self.onePeakPos, self.onePeakWid, b, m])
+        perr = np.sqrt(np.diag(pcov))
 
-            # Filling array with the Gaussian fit data from each bin
-            binFit = np.reshape(self.gaus1(xx, *popt), (len(self.gaus1(xx, *popt)), 1))
-            self.binFitData = np.concatenate((self.binFitData, binFit), axis=1)
+        # Filling array with the Gaussian fit data from each bin
+        binFit = np.reshape(self.gaus1(xx, *popt), (len(self.gaus1(xx, *popt)), 1))
+        self.binFitData = np.concatenate((self.binFitData, binFit), axis=1)
 
-            if self.continueGraphingEachFit == True:
-                self.graphEachFitRawData(xx, yy, popt, 1)
-            return popt, perr
-
-        except TypeError and RuntimeError:
-            QMessageBox.warning(self.myMainWindow, "Error", "Please make sure to input realistic guesses.\n"
-                                                             "Reset or reopen the PVvaulue file.")
+        if self.continueGraphingEachFit == True:
+            self.graphEachFitRawData(xx, yy, popt, 1)
+        return popt, perr
 
     def gaus1(self, x, a, x0, sigma, b, m):
         return a * exp(-(x - x0) ** 2 / (2 * sigma ** 2)) + b + m * x
@@ -141,12 +138,13 @@ class GaussianFitting:
         self.onePeakWid = float(self.onePeakWidthSpin.value())
 
         self.dialogOnePeakGausFit.close()
-        self.OnePeakFitting()
+        error = self.OnePeakFitting()
 
         # Marks that the data has been fitted for one peak
-        self.dockedOpt.onePeakStat = True
-        self.dockedOpt.gausFitStat = True
-        self.dockedOpt.GraphingGaussianOptionsTree()
+        if error == False:
+            self.dockedOpt.onePeakStat = True
+            self.dockedOpt.gausFitStat = True
+            self.dockedOpt.GraphingGaussianOptionsTree()
 
     def GuessOnePeak(self):
         """This method uses the PeakUtils module to calculate the position of the peak, which helps get the
@@ -178,9 +176,10 @@ class GaussianFitting:
                 self.TwoPkGausFitData[j, :] = (fit_result[0], fit_error[0], fit_result[1], fit_error[1], fit_result[2],
                                            fit_error[2], fit_result[3], fit_error[3], fit_result[4], fit_error[4],
                                            fit_result[5], fit_error[5])
+            return False
         except:
-            QMessageBox.warning(self.myMainWindow, "Warning", "Please make sure to input realistic guesses.\n"
-                                                                    "Reset or reopen the PVvaulue file.")
+            QMessageBox.warning(self.myMainWindow, "Warning", "Please make sure to input realistic guesses.")
+            return True
 
     def twoPkFitting(self, xx, yy):
         """Gaussian Fit for one Peak.
@@ -188,7 +187,6 @@ class GaussianFitting:
               :param yy: y-values
               :return: fitted data and error
         """
-        #try:
         x1 = xx[0]
         x2 = xx[-1]
         y1 = yy[0]
@@ -210,9 +208,6 @@ class GaussianFitting:
             self.graphEachFitRawData(xx, yy, popt, 2)
 
         return popt, perr
-        #except TypeError and RuntimeError:
-             #QMessageBox.warning(self.myMainWindow, "Warning", "Please make sure to input realistic guesses.\n"
-                                                                    # "Reset or reopen the PVvaulue file.")
 
     def gaus2(self, x, a1, a2, x01, x02, sigma1, sigma2, background, m):
         return a1 * exp(-(x - x01) ** 2 / (2 * sigma1 ** 2))\
@@ -280,12 +275,14 @@ class GaussianFitting:
         self.twoPeak2Wid = float(self.twoPeak2WidthSpin.value())
 
         self.dialogGausFit.close()
-        self.TwoPeakFitting()
 
-        # Marks that the data has been fitted for one peak
-        self.dockedOpt.twoPeakStat = True
-        self.dockedOpt.gausFitStat = True
-        self.dockedOpt.GraphingGaussianOptionsTree()
+        error = self.TwoPeakFitting()
+
+        if error == False:
+            # Marks that the data has been fitted for one peak
+            self.dockedOpt.twoPeakStat = True
+            self.dockedOpt.gausFitStat = True
+            self.dockedOpt.GraphingGaussianOptionsTree()
 
     def GuessTwoPeak(self):
         """This method uses the PeakUtils module to calculate the position of the peaks, which help get the
@@ -575,41 +572,44 @@ class GaussianFitting:
         """This method gets the voltage of the bins.
         :return: the voltage
         """
-        x = [] # X array initialized
+        try:
+            x = [] # X array initialized
 
-        # Gets the amplitude
-        inF = open(self.dockedOpt.fileName, 'r')
-        lines = inF.readlines()
-        header = ''
-        for (iL, line) in enumerate(lines):
-            if line.startswith('#'):
-                header = line
-        inF.close()
-        words = header.split()
-        amplWord = words[6]
-        ampl = amplWord.split('.')
-        amp = float(ampl[0])
+            # Gets the amplitude
+            inF = open(self.dockedOpt.fileName, 'r')
+            lines = inF.readlines()
+            header = ''
+            for (iL, line) in enumerate(lines):
+                if line.startswith('#'):
+                    header = line
+            inF.close()
+            words = header.split()
+            amplWord = words[6]
+            ampl = amplWord.split('.')
+            amp = float(ampl[0])
 
-        # get the bins
-        nRow, bins = self.dockedOpt.fileInfo()
+            # get the bins
+            nRow, bins = self.dockedOpt.fileInfo()
 
-        # Uses the data to find the x axis
-        amplStart = amp/2
-        points = bins/2
-        xDif = amp/points
-        xStart = xDif/2
-        startX = (-1*amplStart) + xStart
-        x.append(startX)
-        for j in range(points-1):
-            startX = startX + xDif
+            # Uses the data to find the x axis
+            amplStart = amp/2
+            points = bins/2
+            xDif = amp/points
+            xStart = xDif/2
+            startX = (-1*amplStart) + xStart
             x.append(startX)
+            for j in range(points-1):
+                startX = startX + xDif
+                x.append(startX)
 
-        x.append(startX)
-        for j in range(points-1):
-            startX = startX - xDif
             x.append(startX)
-        return x
-
+            for j in range(points-1):
+                startX = startX - xDif
+                x.append(startX)
+            return x
+        except:
+            QMessageBox.warning(self.myMainWindow, "Error", "Unable to detect voltage. Please make sure the PVvalue "
+                                                            "contains the voltage in the comments.")
     # -----------------------------------------Lattice Fit-------------------------------------------------------------#
     def PositionLFit(self, pos, rows):
         """This method calculates the lattice based on the passed paramaters.
@@ -622,22 +622,25 @@ class GaussianFitting:
     def doLFit(self):
         """This function stores the lattice in arrays depending on the peak.
         """
-        nRow, nCol = self.dockedOpt.fileInfo()
+        try:
+            nRow, nCol = self.dockedOpt.fileInfo()
 
-        if  self.dockedOpt.onePeakStat == True :
-            self.LPosData = []  # L Constant for One Peak
-            for i in range(nCol):
-                self.LPosData.append(self.PositionLFit(self.OnePkFitData[i, 2], nRow))
+            if  self.dockedOpt.onePeakStat == True :
+                self.LPosData = []  # L Constant for One Peak
+                for i in range(nCol):
+                    self.LPosData.append(self.PositionLFit(self.OnePkFitData[i, 2], nRow))
 
-        elif self.dockedOpt.twoPeakStat == True:
-            self.LPos1Data = []  # L Constant for Two Peak [#1]
-            self.LPos2Data = []  # L Constant for Two Peak [#2]
-            # Position 1
-            for i in range(nCol):
-              self.LPos1Data.append(self.PositionLFit(self.TwoPkGausFitData[i, 4], nCol))
-            # Position 2
-            for i in range(nCol):
-              self.LPos2Data.append(self.PositionLFit(self.TwoPkGausFitData[i, 6], nCol))
+            elif self.dockedOpt.twoPeakStat == True:
+                self.LPos1Data = []  # L Constant for Two Peak [#1]
+                self.LPos2Data = []  # L Constant for Two Peak [#2]
+                # Position 1
+                for i in range(nCol):
+                  self.LPos1Data.append(self.PositionLFit(self.TwoPkGausFitData[i, 4], nCol))
+                # Position 2
+                for i in range(nCol):
+                  self.LPos2Data.append(self.PositionLFit(self.TwoPkGausFitData[i, 6], nCol))
+        except:
+            QMessageBox.warning(self.myMainWindow, "Error", "Please make sure the gaussian fit was done correctly.")
 
     def graphOnePeakLFitPos(self):
         """This method graphs the Lattice fit position for one peak.
@@ -675,23 +678,28 @@ class GaussianFitting:
     def doLFitPercentChange(self):
         """This function finds the percentage change of the lattice, depending on the peak.
         """
-        self.LPosPrcChangeData = []
+        try:
+            self.LPosPrcChangeData = []
 
-        if self.dockedOpt.onePeakStat == True:
-            for i in range(0, len(self.LPosData)):
-                pctChangeData = ((self.LPosData[i] - self.LPosData[0]) / self.LPosData[0]) * 100
-                self.LPosPrcChangeData.append(pctChangeData)
+            if self.dockedOpt.onePeakStat == True:
+                for i in range(0, len(self.LPosData)):
+                    pctChangeData = ((self.LPosData[i] - self.LPosData[0]) / self.LPosData[0]) * 100
+                    self.LPosPrcChangeData.append(pctChangeData)
 
-        elif self.dockedOpt.twoPeakStat == True:
-            self.LPos1PrcChangeData = []
-            self.LPos2PrcChangeData = []
-            for i in range(0, len(self.LPos1Data)):
-                pctChangeData = ((self.LPos1Data[i] - self.LPos1Data[0]) / self.LPos1Data[0]) * 100
-                self.LPos1PrcChangeData.append(pctChangeData)
+            elif self.dockedOpt.twoPeakStat == True:
+                self.LPos1PrcChangeData = []
+                self.LPos2PrcChangeData = []
+                for i in range(0, len(self.LPos1Data)):
+                    pctChangeData = ((self.LPos1Data[i] - self.LPos1Data[0]) / self.LPos1Data[0]) * 100
+                    self.LPos1PrcChangeData.append(pctChangeData)
 
-            for i in range(0, len(self.LPos2Data)):
-                pctChangeData = ((self.LPos2Data[i] - self.LPos2Data[0]) / self.LPos2Data[0]) * 100
-                self.LPos2PrcChangeData.append(pctChangeData)
+                for i in range(0, len(self.LPos2Data)):
+                    pctChangeData = ((self.LPos2Data[i] - self.LPos2Data[0]) / self.LPos2Data[0]) * 100
+                    self.LPos2PrcChangeData.append(pctChangeData)
+        except:
+            QMessageBox.warning(self.myMainWindow, "Error", "Something went wrong while doing the percentage change"
+                                                            "lattice fit. Make sure the lattice fit was "
+                                                            "done correctly.")
 
     def percentageChangeLConstantOnePeak(self):
         """This method graphs the lattice %-change for one peak.
@@ -727,26 +735,30 @@ class GaussianFitting:
         self.GraphUtilGaussianFitGraphs(name, x, y, None, xLabel, yLabel, 'L')
 
     def EachFitDataReport(self):
-        if self.dockedOpt.gausFitStat == True:
-            selectedFilters = ".txt"
-            reportFile, reportFileFilter = QFileDialog.getSaveFileName(self.myMainWindow, "Save Report", None, selectedFilters)
+        try:
+            if self.dockedOpt.gausFitStat == True:
+                selectedFilters = ".txt"
+                reportFile, reportFileFilter = QFileDialog.getSaveFileName(self.myMainWindow, "Save Report", None, selectedFilters)
 
-            if reportFile != "":
-                reportFile += reportFileFilter
-                _, nCol = self.dockedOpt.fileInfo()
-                header = "#Bin "
+                if reportFile != "":
+                    reportFile += reportFileFilter
+                    _, nCol = self.dockedOpt.fileInfo()
+                    header = "#Bin "
 
-                i = 1
-                while i <= nCol:
-                    header += str(i)+" "
-                    i += 1
+                    i = 1
+                    while i <= nCol:
+                        header += str(i)+" "
+                        i += 1
 
-                scanNum = self.readSpec.scan
-                comment = "#C PVvalue #" + scanNum + "\n"
-                if self.dockedOpt.onePeakStat == True:
-                    np.savetxt(reportFile, self.binFitData, fmt=str('%f'), header=header, comments=comment)
-                elif self.dockedOpt.twoPeakStat == True:
-                    np.savetxt(reportFile, self.binFitData, fmt=str('%-13.6f'), delimiter=" ", header=header, comments=comment)
+                    scanNum = self.readSpec.scan
+                    comment = "#C PVvalue #" + scanNum + "\n"
+                    if self.dockedOpt.onePeakStat == True:
+                        np.savetxt(reportFile, self.binFitData, fmt=str('%f'), header=header, comments=comment)
+                    elif self.dockedOpt.twoPeakStat == True:
+                        np.savetxt(reportFile, self.binFitData, fmt=str('%-14.6f'), delimiter=" ", header=header, comments=comment)
+        except:
+            QMessageBox.warning(self.myMainWindow, "Error", "Make sure the gaussian fit was done properly, before "
+                                                            "exporting the report again.")
 
 
 

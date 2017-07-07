@@ -9,17 +9,17 @@ See LICENSE file.
 
 # ---------------------------------------------------------------------------------------------------------------------#
 from __future__ import unicode_literals
-from pylab import *
-from matplotlib.backends import qt_compat
-import os
+
 import gc
 
-from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
-
+from pylab import *
 from spec2nexus.spec import SpecDataFile
-from ReadSpecFile import ReadSpec
+
+from xPlotUtil.Source.ReadSpecFile import ReadSpec
+
+
 # ---------------------------------------------------------------------------------------------------------------------#
 
 
@@ -204,8 +204,9 @@ class DockedOption(QDockWidget):
             for i in range(nCol):
                 self.TT[:, i] = data[:, i]
         except:
-            QMessageBox.warning(self.myMainWindow, "Warning", "Please make sure you're opening the correct"
-                                                              " file and it follows the appropriate format.")
+            QMessageBox.warning(self.myMainWindow, "Warning", "Please make sure the PVvalue file follows the "
+                                                              "appropriate format. There should be an equal amount of "
+                                                              "rows and columns.")
             self.mainOptions.close()
             self.DockMainOptions()
             self.specFileInfo()
@@ -547,101 +548,116 @@ class DockedOption(QDockWidget):
         """This function calls on the appropriate method to plot the graphs, taking into account the fit and
         number of peaks.
         """
-        if self.FileError() == False:
-            # Raw Data
-            if self.colorGraphBranch.checkState(0) == 2:
-                self.myMainWindow.PlotColorGraphRawData()
-                self.colorGraphBranch.setCheckState(0, 0)
-            if self.lineGraphBranch.checkState(0) == 2:
-                self.myMainWindow.PlotLineGraphRawData()
-                self.lineGraphBranch.setCheckState(0, 0)
+        try:
+            if self.FileError() == False:
+                # Raw Data
+                if self.colorGraphBranch.checkState(0) == 2:
+                    self.myMainWindow.PlotColorGraphRawData()
+                    self.colorGraphBranch.setCheckState(0, 0)
+                if self.lineGraphBranch.checkState(0) == 2:
+                    self.myMainWindow.PlotLineGraphRawData()
+                    self.lineGraphBranch.setCheckState(0, 0)
 
-            if self.algebraicExpStat == True:
-                if self.singleValueIndexBranch.checkState(0) == 2:
-                    self.algebraExp.plotSingleValueIndex()
-                    self.singleValueIndexBranch.setCheckState(0, 0)
-                if self.th2ThBranch.checkState(0) == 2:
-                    self.algebraExp.plotTh2ThExp()
-                    self.th2ThBranch.setCheckState(0, 0)
-                if self.weightingBranch.checkState(0) == 2:
-                    self.algebraExp.plotWeightingExp()
-                    self.weightingBranch.setCheckState(0, 0)
-            # Gaussian Fit
-            if self.onePeakStat == True:
-                self.graphingOnePeak()
-            elif self.twoPeakStat == True:
-                self.graphingTwoPeak()
+                if self.algebraicExpStat == True:
+                    if self.singleValueIndexBranch.checkState(0) == 2:
+                        self.algebraExp.plotSingleValueIndex()
+                        self.singleValueIndexBranch.setCheckState(0, 0)
+                    if self.th2ThBranch.checkState(0) == 2:
+                        self.algebraExp.plotTh2ThExp()
+                        self.th2ThBranch.setCheckState(0, 0)
+                    if self.weightingBranch.checkState(0) == 2:
+                        self.algebraExp.plotWeightingExp()
+                        self.weightingBranch.setCheckState(0, 0)
+                # Gaussian Fit
+                if self.onePeakStat == True:
+                    self.graphingOnePeak()
+                elif self.twoPeakStat == True:
+                    self.graphingTwoPeak()
+        except:
+            QMessageBox.warning(self.myMainWindow, "Warning", "Please make sure the PVvalue file belongs to the spec"
+                                                              " file and/or follows the appropriate format. "
+                                                              "Reopen the PVvalue file.")
 
     def graphingOnePeak(self):
         """This method calls on the appropriate method to plot one peak graphs.
         """
-        if self.onePeakAmplitude.checkState(0) == 2:
-            self.gausFit.graphOnePeakAmplitude()
-            self.onePeakAmplitude.setCheckState(0, 0)
-        if self.onePeakPosition.checkState(0) == 2:
-            self.gausFit.graphOnePeakPosition()
-            self.onePeakPosition.setCheckState(0, 0)
-        if self.onePeakWidth.checkState(0) == 2:
-            self.gausFit.graphOnePeakWidth()
-            self.onePeakWidth.setCheckState(0, 0)
-        if self.onePeakAmpxWid.checkState(0) == 2:
-            self.gausFit.graphOnePeakAmplitudeXWidth()
-            self.onePeakAmpxWid.setCheckState(0, 0)
+        try:
+            if self.onePeakAmplitude.checkState(0) == 2:
+                self.gausFit.graphOnePeakAmplitude()
+                self.onePeakAmplitude.setCheckState(0, 0)
+            if self.onePeakPosition.checkState(0) == 2:
+                self.gausFit.graphOnePeakPosition()
+                self.onePeakPosition.setCheckState(0, 0)
+            if self.onePeakWidth.checkState(0) == 2:
+                self.gausFit.graphOnePeakWidth()
+                self.onePeakWidth.setCheckState(0, 0)
+            if self.onePeakAmpxWid.checkState(0) == 2:
+                self.gausFit.graphOnePeakAmplitudeXWidth()
+                self.onePeakAmpxWid.setCheckState(0, 0)
 
-        # Lattice Fit
-        if self.LFitStat == True:
-            if self.onePeakRLU.checkState(0) == 2:
-                self.gausFit.graphOnePeakLFitPos()
-                self.onePeakRLU.setCheckState(0, 0)
-            if self.onePeakRLUPrcChange.checkState(0) == 2:
-                self.gausFit.percentageChangeLConstantOnePeak()
-                self.onePeakRLUPrcChange.setCheckState(0, 0)
+            # Lattice Fit
+            if self.LFitStat == True:
+                if self.onePeakRLU.checkState(0) == 2:
+                    self.gausFit.graphOnePeakLFitPos()
+                    self.onePeakRLU.setCheckState(0, 0)
+                if self.onePeakRLUPrcChange.checkState(0) == 2:
+                    self.gausFit.percentageChangeLConstantOnePeak()
+                    self.onePeakRLUPrcChange.setCheckState(0, 0)
+        except:
+            QMessageBox.warning(self.myMainWindow, "Warning", "Please make sure to the fitting was correct and/or the "
+                                                              "files follow the correct format. "
+                                                              "Reopen the PVvalue file")
 
     def graphingTwoPeak(self):
         """This method calls on the appropriate method to plot two peak graphs.
         """
-        # Peak One
-        if self.amplitudePeakOne.checkState(0) == 2:
-            self.gausFit.graphTwoPeakAmplitude1()
-            self.amplitudePeakOne.setCheckState(0, 0)
-        if self.positionPeakOne.checkState(0) == 2:
-            self.gausFit.graphTwoPeakPosition1()
-            self.positionPeakOne.setCheckState(0, 0)
-        if self.widthPeakOne.checkState(0) == 2:
-            self.gausFit.graphTwoPeakWidth1()
-            self.widthPeakOne.setCheckState(0, 0)
-        if self.ampXWidPeakOne.checkState(0) == 2:
-            self.gausFit.graphTwoPeakAmplitudeXWidth1()
-            self.ampXWidPeakOne.setCheckState(0, 0)
+        try:
+            # Peak One
+            if self.amplitudePeakOne.checkState(0) == 2:
+                self.gausFit.graphTwoPeakAmplitude1()
+                self.amplitudePeakOne.setCheckState(0, 0)
+            if self.positionPeakOne.checkState(0) == 2:
+                self.gausFit.graphTwoPeakPosition1()
+                self.positionPeakOne.setCheckState(0, 0)
+            if self.widthPeakOne.checkState(0) == 2:
+                self.gausFit.graphTwoPeakWidth1()
+                self.widthPeakOne.setCheckState(0, 0)
+            if self.ampXWidPeakOne.checkState(0) == 2:
+                self.gausFit.graphTwoPeakAmplitudeXWidth1()
+                self.ampXWidPeakOne.setCheckState(0, 0)
 
-        # Peak Two
-        if self.amplitudePeakTwo.checkState(0) == 2:
-            self.gausFit.graphTwoPeakAmplitude2()
-            self.amplitudePeakTwo.setCheckState(0, 0)
-        if self.positionPeakTwo.checkState(0) == 2:
-            self.gausFit.graphTwoPeakPosition2()
-            self.positionPeakTwo.setCheckState(0, 0)
-        if self.widthPeakTwo.checkState(0) == 2:
-            self.gausFit.graphTwoPeakWidth2()
-            self.widthPeakTwo.setCheckState(0, 0)
-        if self.ampXWidPeakTwo.checkState(0) == 2:
-            self.gausFit.graphTwoPeakAmplitudeXWidth2()
-            self.ampXWidPeakTwo.setCheckState(0, 0)
+            # Peak Two
+            if self.amplitudePeakTwo.checkState(0) == 2:
+                self.gausFit.graphTwoPeakAmplitude2()
+                self.amplitudePeakTwo.setCheckState(0, 0)
+            if self.positionPeakTwo.checkState(0) == 2:
+                self.gausFit.graphTwoPeakPosition2()
+                self.positionPeakTwo.setCheckState(0, 0)
+            if self.widthPeakTwo.checkState(0) == 2:
+                self.gausFit.graphTwoPeakWidth2()
+                self.widthPeakTwo.setCheckState(0, 0)
+            if self.ampXWidPeakTwo.checkState(0) == 2:
+                self.gausFit.graphTwoPeakAmplitudeXWidth2()
+                self.ampXWidPeakTwo.setCheckState(0, 0)
 
-        # Lattice Fit
-        if self.LFitStat == True:
-            if self.RLUPeakOne.checkState(0) == 2:
-                self.gausFit.graphTwoPeakLFitPos1()
-                self.RLUPeakOne.setCheckState(0, 0)
-            if self.RLUPrcChangePeakOne.checkState(0) == 2:
-                self.gausFit.percentageChangeLConstantPeakOne()
-                self.RLUPrcChangePeakOne.setCheckState(0, 0)
-            if self.RLUPeakTwo.checkState(0) == 2:
-                self.gausFit.graphTwoPeakLFitPos2()
-                self.RLUPeakTwo.setCheckState(0, 0)
-            if self.RLUPrcChangePeakTwo.checkState(0) == 2:
-                self.gausFit.percentageChangeLConstantPeakTwo()
-                self.RLUPrcChangePeakTwo.setCheckState(0, 0)
+            # Lattice Fit
+            if self.LFitStat == True:
+                if self.RLUPeakOne.checkState(0) == 2:
+                    self.gausFit.graphTwoPeakLFitPos1()
+                    self.RLUPeakOne.setCheckState(0, 0)
+                if self.RLUPrcChangePeakOne.checkState(0) == 2:
+                    self.gausFit.percentageChangeLConstantPeakOne()
+                    self.RLUPrcChangePeakOne.setCheckState(0, 0)
+                if self.RLUPeakTwo.checkState(0) == 2:
+                    self.gausFit.graphTwoPeakLFitPos2()
+                    self.RLUPeakTwo.setCheckState(0, 0)
+                if self.RLUPrcChangePeakTwo.checkState(0) == 2:
+                    self.gausFit.percentageChangeLConstantPeakTwo()
+                    self.RLUPrcChangePeakTwo.setCheckState(0, 0)
+        except:
+            QMessageBox.warning(self.myMainWindow, "Warning", "Please make sure to the fitting was correct and/or the"
+                                                              "files follow the correct format. "
+                                                              "Reopen the PVvalue")
 
 
 

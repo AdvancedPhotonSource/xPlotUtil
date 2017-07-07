@@ -1,12 +1,13 @@
 xPlot Util
 ===================================
 
-The program provides an interface for the the user to fit, graph and normalize its data. The GUI creates an interactive
-GUI for the user to do Gaussian and Lattice fit. First the user must open a spec file, only the PVvalues in the same
-directory of teh spec file will be loaded on the docked widget on the right of the window. The user will then select a
-scan by double clicking on it, the program will automatically open the particular selected file. This enables the user
-to graph the raw data, as well as do a Gaussian fit, normalize the data or do a Lattice fit. The program allows the user
-to graph the data obtained from both the Gaussian and Lattice fit, as well as to create a report from those fits.
+The program provides a GUI for the user to graph the data in different forms, normalize and fit it. First the user must
+open a spec file by clicking on the browse button. Once the file has been open, the path will be displayed next to the
+button. It's important for the PVvalue files of the particular spec file to be located in the same directory as the spec.
+Since, only the PVvalues in the directory with scans in the spec file wlll be displayed in the QListWidget. The user will
+then select a scan by double clicking on it, the program will automatically open the particular selected file. This
+enables the user to start graphing the raw data, as well as do the Gaussian fit, normalize the data. The program allows
+the user to graph the data obtained from both the Gaussian and Lattice fit, as well as to create a report from those fits.
 
 Version
 -------

@@ -10,8 +10,6 @@ import sys
 import numpy as np
 import os
 from pylab import *
-from matplotlib.backends import qt_compat
-use_pyside = qt_compat.QT_API == qt_compat.QT_API_PYSIDE
 
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *

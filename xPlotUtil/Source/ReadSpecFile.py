@@ -9,16 +9,15 @@ See LICENSE file.
 
 # ---------------------------------------------------------------------------------------------------------------------#
 from __future__ import unicode_literals
-from pylab import *
-from matplotlib.backends import qt_compat
+
 import os
-from GaussianFit import GaussianFitting
 
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
+from pylab import *
 
-from spec2nexus.spec import SpecDataFile
+from xPlotUtil.Source.GaussianFit import GaussianFitting
+
+
 # ---------------------------------------------------------------------------------------------------------------------#
 
 
@@ -54,7 +53,6 @@ class ReadSpec:
         h = text.split('.')
         return int(h[1])
 
-
     def openSpecDialog(self):
         """This method creates a file dialog to open the spec file. Once the file has been open it resets
         various attributes to their original value to initialize/reestablish functionality.
@@ -81,6 +79,7 @@ class ReadSpec:
                 self.dockedOpt.fileOpened = False
                 self.continueGraphingEachFit = True
                 self.myMainWindow.LatticeFitAction.setEnabled(False)
+                self.myMainWindow.showProgress("Spec file opened")
         except:
              print("Please make sure the directory follows the proper format, including the spec and PVvalue files.")
 
@@ -105,7 +104,12 @@ class ReadSpec:
         scan = self.PvFiles[self.dockedOpt.specDataList.currentRow()].split(".")
         self.scan = scan[1]
         self.currentRow = self.dockedOpt.specDataList.currentRow()
-        fileName = self.specDirectory + "/" + self.PvFiles[self.currentRow]
+
+        if self.specDirectory.find("/") == 0:
+            fileName = self.specDirectory + "/" + self.PvFiles[self.currentRow]
+        elif self.specDirectory.find("\\") == 0:
+            fileName = self.specDirectory + "\\" + self.PvFiles[self.currentRow]
+
         self.dockedOpt.openFile(fileName)
 
         # Making sure the file of the PVvalue has been opened
