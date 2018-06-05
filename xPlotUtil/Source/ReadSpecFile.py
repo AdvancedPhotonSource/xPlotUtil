@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import *
 from pylab import *
 
 from xPlotUtil.Source.GaussianFit import GaussianFitting
+import traceback
 
 
 # ---------------------------------------------------------------------------------------------------------------------#
@@ -29,6 +30,7 @@ class ReadSpec:
         self.dockedOpt = parent
         self.myMainWindow = self.dockedOpt.myMainWindow
         self.gausFit = GaussianFitting(self)
+        self.lorentFit = self.gausFit.lorentFit
         self.algebraExp = self.gausFit.algebraExp
         self.specFileOpened = False
         self.specFileName = None
@@ -66,11 +68,11 @@ class ReadSpec:
                 # Gets the PVvalue files in the directory
                 self.specDirectory = os.path.dirname(self.specFileName)
                 self.PvFiles = [f for f in os.listdir(self.specDirectory) if f.find("PVvalue") == 0]
-                self.PvFiles.sort(key=self.getPVNumKey)
+                sorted(self.PvFiles, key=self.getPVNumKey)
 
                 self.dockedOpt.mainOptions.close()
                 self.dockedOpt.DockMainOptions()
-                self.dockedOpt.gausFitStat = False
+                self.dockedOpt.fitStat = False
                 self.dockedOpt.LFitStat = False
                 self.dockedOpt.normalizingStat = False
                 self.algebraicExpStat = False
@@ -78,10 +80,11 @@ class ReadSpec:
                 self.specFileOpened = True
                 self.dockedOpt.fileOpened = False
                 self.continueGraphingEachFit = True
-                self.myMainWindow.LatticeFitAction.setEnabled(False)
+                self.myMainWindow.latticeFitAction.setEnabled(False)
                 self.myMainWindow.showProgress("Spec file opened")
-        except:
-             print("Please make sure the directory follows the proper format, including the spec and PVvalue files.")
+        except Exception as e:
+            QMessageBox.warning(self.myMainWindow, "Error", "There was an error \n\n Exception: " + str(e)
+                                + "\n\nTraceback: " + str(traceback.print_stack()))
 
     def loadScans(self, scans):
         """Loads the scan into the specDataList
@@ -89,7 +92,7 @@ class ReadSpec:
         """
         self.scans = scans
         scanKeys = self.scans.keys()
-        scanKeys.sort(key=int)  # Sorts the scans in order lowest-greater
+        sorted(scanKeys, key=int)  # Sorts the scans in order lowest-greater
         for scan in scanKeys:
             for file in self.PvFiles:
                 f = file.split('.')
@@ -107,7 +110,7 @@ class ReadSpec:
 
         if self.specDirectory.find("/") == 0:
             fileName = self.specDirectory + "/" + self.PvFiles[self.currentRow]
-        elif self.specDirectory.find("\\") == 0:
+        else:
             fileName = self.specDirectory + "\\" + self.PvFiles[self.currentRow]
 
         self.dockedOpt.openFile(fileName)
@@ -130,11 +133,11 @@ class ReadSpec:
                     for key in self.scans[self.scan].data.keys():
                         if key.find("Ion_Ch_") == 0:
                             self.normalizers.append(key)
-                    self.normalizers.sort()
-            except:
-                print("Please make sure the PVValue has the correct information in the spec file.")
+                    sorted(self.normalizers)
+            except Exception as e:
+                QMessageBox.warning(self.myMainWindow, "Error", "There was an error \n\n Exception: " + str(e))
 
-    ''' # Current using the L from the spec file
+    ''' # Currently using the L from the spec file
     def getRLU(self):
         """This function gets the Lattice for the particular file, using the lattice max, lattice min and the
         number of points on each column for the raw data. """
@@ -201,9 +204,10 @@ class ReadSpec:
                         self.normalizer = np.reshape(self.normalizer, (len(self.normalizer), 1))
                         self.dockedOpt.TT = np.divide(self.dockedOpt.TT, self.normalizer)
                         self.dockedOpt.normalizingStat = True
-        except:
+        except Exception as e:
             QMessageBox.warning(self.myMainWindow, "Dimension Error", "Please make sure the selected normalizer "
-                                                                      "has the same row dimension as the raw data.")
+                                                                      "has the same row dimension as the raw data." +
+                                                                      "Exception: " + str(e))
 
     def possibleRawDataLineGraphXAxis(self):
         """This function finds the possible x-axis for the raw data line graph. Also adds Bins to

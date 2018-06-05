@@ -1,2 +1,1 @@
-conda install pyqt=5.6.0
-conda install scipy
+python -m xPlotUtil.PlotWindow &

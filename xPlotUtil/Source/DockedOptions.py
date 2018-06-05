@@ -11,9 +11,11 @@ See LICENSE file.
 from __future__ import unicode_literals
 
 import gc
+import os
 
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
 from pylab import *
 from spec2nexus.spec import SpecDataFile
 
@@ -35,13 +37,14 @@ class DockedOption(QDockWidget):
         self.readSpec = ReadSpec(self)
         self.gausFit = self.readSpec.gausFit
         self.algebraExp = self.gausFit.algebraExp
+        self.lorentFit = self.readSpec.lorentFit
 
         # Keeps track of when the function has been apply
         self.onePeakStat = False
         self.twoPeakStat = False
         self.fileOpened = False
 
-        self.gausFitStat = False
+        self.fitStat = False
         self.LFitStat = False
         self.normalizingStat = False
         self.algebraicExpStat = False
@@ -169,12 +172,12 @@ class DockedOption(QDockWidget):
             self.mainOptions.close()
             self.DockMainOptions()
             self.specFileInfo()
-            self.myMainWindow.LatticeFitAction.setEnabled(False)
+            self.myMainWindow.latticeFitAction.setEnabled(False)
             self.specDataList.setCurrentRow(self.readSpec.currentRow)
             self.onePeakStat = False
             self.twoPeakStat = False
             self.normalizingStat = False
-            self.gausFitStat = False
+            self.fitStat = False
             self.LFitStat = False
             self.algebraicExpStat = False
             self.rdOnlyScanSelected.setStatusTip(self.fileName)
@@ -235,12 +238,26 @@ class DockedOption(QDockWidget):
         """This function asks the user for the amount of peaks. Then calls on the appropriate dialog, depending on
         the peak number.
         """
-        if self.FileError() == False and self.gausFitStat == False:
-            chosePeak = self.PeakDialog()
-            if (chosePeak == 'One'):
-                self.gausFit.gausOnePeakInputDialog()
-            elif (chosePeak == 'Two'):
-                self.gausFit.gausTwoPeakInputDialog()
+        if self.fitStat == True:
+            ans = self.msgApp("New Fit", "Would you like to refit the data? \n\nThis will delete the data"
+                                                   "from the previous fit.")
+            if ans == 'N':
+                pass
+            else:
+                self.openFile(self.fileName)
+                if self.FileError() == False and self.fitStat == False:
+                    chosePeak = self.PeakDialog()
+                    if (chosePeak == 'One'):
+                        self.gausFit.OnePeakGaussianFit()
+                    elif (chosePeak == 'Two'):
+                        self.gausFit.TwoPeakGaussianFit()
+        else:
+            if self.FileError() == False and self.fitStat == False:
+                chosePeak = self.PeakDialog()
+                if (chosePeak == 'One'):
+                    self.gausFit.OnePeakGaussianFit()
+                elif (chosePeak == 'Two'):
+                    self.gausFit.TwoPeakGaussianFit()
 
     def PeakDialog(self):
         """Method that creates a dialog, so that the user can peak the number of peaks.
@@ -274,7 +291,7 @@ class DockedOption(QDockWidget):
         self.DockMainOptions()
         self.gausFit.continueGraphingEachFit = True
 
-        self.myMainWindow.LatticeFitAction.setEnabled(False)
+        self.myMainWindow.latticeFitAction.setEnabled(False)
 
         self.readSpec.specFileOpened = False
         self.readSpec.specFileName = None
@@ -283,7 +300,7 @@ class DockedOption(QDockWidget):
         self.onePeakStat = False
         self.twoPeakStat = False
         self.fileOpened = False
-        self.gausFitStat = False
+        self.fitStat = False
         self.LFitStat = False
         self.normalizingStat = False
         self.algebraicExpStat = False
@@ -376,24 +393,30 @@ class DockedOption(QDockWidget):
             self.algebraExp.singularValueDecomposition()
             self.graphingOptionsTree.addTopLevelItem(self.algebraicExpTopBranch)
 
-    def GraphingGaussianOptionsTree(self):
+    def GraphingFitOptionsTree(self, fit):
         """This method initializes the tree branch for the gaussian fit graphing options.
         """
-        # Gaussian Fit Top Branch
-        self.gaussianFitTopBranch = QTreeWidgetItem()
-        self.gaussianFitTopBranch.setText(0, "Gaussian Fit")
-        self.gaussianFitTopBranch.setFlags(self.gaussianFitTopBranch.flags() | Qt.ItemIsTristate |
+        if fit == 'G':
+            name = "Gaussian Fit"
+        elif fit == 'L':
+            name = 'Lorentzian Fit'
+        elif fit == 'V':
+            name = 'Voigt Fit'
+
+        self.fitTopBranch = QTreeWidgetItem()
+        self.fitTopBranch.setText(0, name)
+        self.fitTopBranch.setFlags(self.fitTopBranch.flags() | Qt.ItemIsTristate |
                                            Qt.ItemIsUserCheckable)
 
         if self.twoPeakStat == True:
-            """Gaussian Fit Children"""
+            """Fit Children"""
             # Peak One
-            self.peakOneBranch = QTreeWidgetItem(self.gaussianFitTopBranch)
+            self.peakOneBranch = QTreeWidgetItem(self.fitTopBranch)
             self.peakOneBranch.setText(0, "Peak #1")
             self.peakOneBranch.setFlags(self.peakOneBranch.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
 
             # Peak Two
-            self.peakTwoBranch = QTreeWidgetItem(self.gaussianFitTopBranch)
+            self.peakTwoBranch = QTreeWidgetItem(self.fitTopBranch)
             self.peakTwoBranch.setText(0, "Peak #2")
             self.peakTwoBranch.setFlags(self.peakTwoBranch.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
 
@@ -450,38 +473,38 @@ class DockedOption(QDockWidget):
         elif self.onePeakStat == True:
             """Children of Gaussian Branch"""
             # Amplitude
-            self.onePeakAmplitude = QTreeWidgetItem(self.gaussianFitTopBranch)
+            self.onePeakAmplitude = QTreeWidgetItem(self.fitTopBranch)
             self.onePeakAmplitude.setFlags(self.onePeakAmplitude.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsTristate)
             self.onePeakAmplitude.setText(0, "Amplitude")
             self.onePeakAmplitude.setCheckState(0, Qt.Unchecked)
 
             # Position
-            self.onePeakPosition = QTreeWidgetItem(self.gaussianFitTopBranch)
+            self.onePeakPosition = QTreeWidgetItem(self.fitTopBranch)
             self.onePeakPosition.setFlags(self.onePeakPosition.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsTristate)
             self.onePeakPosition.setText(0, "Position")
             self.onePeakPosition.setCheckState(0, Qt.Unchecked)
 
             # Width Peak One
-            self.onePeakWidth = QTreeWidgetItem(self.gaussianFitTopBranch)
+            self.onePeakWidth = QTreeWidgetItem(self.fitTopBranch)
             self.onePeakWidth.setFlags(self.onePeakWidth.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsTristate)
             self.onePeakWidth.setText(0, "Width")
             self.onePeakWidth.setCheckState(0, Qt.Unchecked)
 
             # Amplitude x Width Peak One
-            self.onePeakAmpxWid = QTreeWidgetItem(self.gaussianFitTopBranch)
+            self.onePeakAmpxWid = QTreeWidgetItem(self.fitTopBranch)
             self.onePeakAmpxWid.setFlags(self.onePeakAmpxWid.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsTristate)
             self.onePeakAmpxWid.setText(0, "Amplitude x Width")
             self.onePeakAmpxWid.setCheckState(0, Qt.Unchecked)
 
         #Adding the top branch to the graphing options tree
-        self.graphingOptionsTree.addTopLevelItem(self.gaussianFitTopBranch)
+        self.graphingOptionsTree.addTopLevelItem(self.fitTopBranch)
 
-        self.myMainWindow.LatticeFitAction.setEnabled(True)
+        self.myMainWindow.latticeFitAction.setEnabled(True)
 
 
     def GraphingLatticeOptionsTree(self):
         """This method initializes the tree branch for the lattice fit graphing options"""
-        if self.LFitStat == False and self.gausFitStat == True:
+        if self.LFitStat == False and self.fitStat == True:
             # L Fit Top Branch
             self.LFitTopBranch = QTreeWidgetItem()
             self.LFitTopBranch.setText(0, "Lattice Fit")
@@ -573,10 +596,11 @@ class DockedOption(QDockWidget):
                     self.graphingOnePeak()
                 elif self.twoPeakStat == True:
                     self.graphingTwoPeak()
-        except:
+        except Exception as e:
             QMessageBox.warning(self.myMainWindow, "Warning", "Please make sure the PVvalue file belongs to the spec"
                                                               " file and/or follows the appropriate format. "
-                                                              "Reopen the PVvalue file.")
+                                                              "Reopen the PVvalue file.\n\n"
+                                                              "Exception: " + str(e))
 
     def graphingOnePeak(self):
         """This method calls on the appropriate method to plot one peak graphs.
@@ -603,10 +627,9 @@ class DockedOption(QDockWidget):
                 if self.onePeakRLUPrcChange.checkState(0) == 2:
                     self.gausFit.percentageChangeLConstantOnePeak()
                     self.onePeakRLUPrcChange.setCheckState(0, 0)
-        except:
-            QMessageBox.warning(self.myMainWindow, "Warning", "Please make sure to the fitting was correct and/or the "
-                                                              "files follow the correct format. "
-                                                              "Reopen the PVvalue file")
+
+        except Exception as e:
+            QMessageBox.warning(self.myMainWindow, "Error", "There was an error \n\n Exception: " + str(e))
 
     def graphingTwoPeak(self):
         """This method calls on the appropriate method to plot two peak graphs.
@@ -654,10 +677,9 @@ class DockedOption(QDockWidget):
                 if self.RLUPrcChangePeakTwo.checkState(0) == 2:
                     self.gausFit.percentageChangeLConstantPeakTwo()
                     self.RLUPrcChangePeakTwo.setCheckState(0, 0)
-        except:
-            QMessageBox.warning(self.myMainWindow, "Warning", "Please make sure to the fitting was correct and/or the"
-                                                              "files follow the correct format. "
-                                                              "Reopen the PVvalue")
+
+        except Exception as e:
+             QMessageBox.warning(self.myMainWindow, "Error", "There was an error \n\n Exception: " + str(e))
 
 
 

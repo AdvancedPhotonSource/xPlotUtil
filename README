@@ -11,7 +11,7 @@ the user to graph the data obtained from both the Gaussian and Lattice fit, as w
 
 Version
 -------
-0.0.1 - 06/12/2017
+0.1.2 - 07/10/2017
 
 Getting Started
 ---------------
@@ -22,7 +22,6 @@ following modules:
     - pyqt 5.6.0
     - matplotlib 2.0.2
     - numpy 1.13.0
-    - pyside 1.2.0
     - spec2nexus 2017.522.1
     - future 0.16.0
     - scipy 0.19.0
@@ -37,9 +36,19 @@ Built With
 
 Installation
 ------------
-To download xPlot Util use the git clone command by using HTTPS or SSH, which I have provided below:
+There are two ways to download xPlotUtil. You can either use the git clone command or use the pip install command.
+
+- For the git clone command use HTTPS or SSH, which I have provided below:
     - SSH: git@github.com:AdvancedPhotonSource/xPlotUtil.git
     - HTTPS: https://github.com/AdvancedPhotonSource/xPlotUtil.git
+
+- For the pip command follow these steps:
+    1. Download Anaconda with Python 2.7
+    2. Open the terminal and make sure it has anaconda as its path. Then type the following command:
+        - pip install xPlotUtil
+    3. Once xPlotUtil has been installed type xPlotUtil.bat as a command. This will activate a script to download numpy
+    and PyQt5.
+    3. Once all the required modules have been downloaded simply type xPlotUtil as a command to start the GUI.
 
 Author(s)
 -------

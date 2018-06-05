@@ -1,3 +1,4 @@
+README.md
 setup.py
 Scripts/xPlotUtil
 Scripts/xPlotUtil.bat
@@ -11,5 +12,6 @@ xPlotUtil.egg-info/top_level.txt
 xPlotUtil/Source/AlgebraicExpressions.py
 xPlotUtil/Source/DockedOptions.py
 xPlotUtil/Source/GaussianFit.py
+xPlotUtil/Source/LorentzianFit.py
 xPlotUtil/Source/ReadSpecFile.py
 xPlotUtil/Source/__init__.py

@@ -6,21 +6,18 @@ See LICENSE file.
 """
 # ---------------------------------------------------------------------------------------------------------------------#
 from __future__ import unicode_literals
-import sys
-import numpy as np
-import os
 from pylab import *
 
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
+
 from PyQt5.QtWidgets import *
 
-from scipy.optimize import curve_fit
-from scipy import exp
+
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationToolbar
-from matplotlib.ticker import FormatStrFormatter
+
+
+from xPlotUtil.Source.LorentzianFit import LorentzianFitting
 # ---------------------------------------------------------------------------------------------------------------------#
 
 class AlgebraicExpress:
@@ -32,6 +29,7 @@ class AlgebraicExpress:
         self.dockedOpt = self.gausFit.dockedOpt
         self.readSpec = self.gausFit.readSpec
         self.myMainWindow = self.gausFit.myMainWindow
+        self.lorentFit = LorentzianFitting(self)
 
 
     def singularValueDecomposition(self):

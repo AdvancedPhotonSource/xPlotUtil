@@ -17,11 +17,8 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from matplotlib.backends.backend_qt5 import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
 from pylab import *
-
 from xPlotUtil.Source.DockedOptions import DockedOption
-
 
 # ---------------------------------------------------------------------------------------------------------------------#
 
@@ -41,6 +38,7 @@ class MainWindow (QMainWindow):
         self.gausFit = self.dockedOpt.gausFit
         self.readSpec = self.dockedOpt.readSpec
         self.algebraExp = self.gausFit.algebraExp
+        self.lorentFit = self.dockedOpt.lorentFit
         self.canvasArray = []
         self.figArray = []
 
@@ -124,38 +122,47 @@ class MainWindow (QMainWindow):
         self.graphMenu.addAction(self.mainOptionsAction)
         self.graphMenu.addAction(self.normalizeAction)
         self.graphMenu.addAction(self.algebraicExpAction)
-        self.graphMenu.addAction(self.GaussianFitAction)
-        self.graphMenu.addAction(self.LatticeFitAction)
+        self.fitMenu = self.graphMenu.addMenu("Fits")
+        self.fitMenu.addAction(self.gaussianFitAction)
+        self.fitMenu.addAction(self.lorentzianFitAction)
+        self.fitMenu.addAction(self.voigtFitAction)
+        self.fitMenu.addAction(self.latticeFitAction)
         self.graphMenu.addSeparator()
         self.helpMenu.addSeparator()  
         self.helpMenu.addAction(self.aboutAction)
 
-        self.LatticeFitAction.setEnabled(False)
+        self.latticeFitAction.setEnabled(False)
 
     def CreateActions(self):
         """Function that creates the actions used in the menu bar
         """
-        self.openAction = QAction(QIcon('openFolder.png'), '&Open',
-                                        self, shortcut=QKeySequence.Open,
-                                        statusTip="Open an existing file",
-                                        triggered=self.readSpec.openSpecFile)
+        self.openAction = QAction(QIcon('openFolder.png'), '&Open', self)
+        self.openAction.setShortcut(QKeySequence.Open)
+        self.openAction.setStatusTip("Open an existing file")
+        self.openAction.triggered.connect(self.readSpec.openSpecFile)
+
         self.exitAction = QAction(QIcon('exit.png'), 'E&xit',
                                         self, shortcut="Ctrl+Q",
                                         statusTip="Exit the Application",
                                         triggered=self.exitFile)
         self.resetAction = QAction('Reset', self, statusTip="Resets xPlot Util",
                                   triggered=self.dockedOpt.resetxPlot)
-        self.reportAction = QAction('Report', self, statusTip="Create a report of the data",
+        self.reportAction = QAction('Fit Report', self, statusTip="Create a report of the fit data",
                                          triggered=self.ReportDialog)
-        self.binGausFitReportAction = QAction('Bin Gaussian Fit', self, statusTip="Create a report from bin fitted data",
+        self.binGausFitReportAction = QAction('Fit of each Bin Report', self, statusTip="Create a report from rach bin "
+                                                                                        "fit data.",
                                               triggered=self.gausFit.EachFitDataReport)
         self.mainOptionsAction = QAction('Main Options', self, statusTip="Main options for xPlot Util",
                                              triggered=self.dockedOpt.restoreMainOptions)
-        self.GaussianFitAction= QAction('Gaussian Fit',self, statusTip="Dock the graphing options" ,
+        self.gaussianFitAction= QAction('Gaussian Fit',self, statusTip="Gaussian fit",
                                         triggered=self.dockedOpt.WhichPeakGaussianFit)
-        self.LatticeFitAction = QAction('Lattice Fit', self, statusTip="Fits the data to the L fit",
+        self.lorentzianFitAction = QAction('Lorentzian Fit', self, statusTip="Lorentzian fit.",
+                                         triggered=self.lorentFit.WhichPeakLorentzianFit)
+        self.voigtFitAction = QAction('Voigt Fit', self, statusTip="Voigt fit.",
+                                         triggered=self.lorentFit.WhichPeakVoigtFit)
+        self.latticeFitAction = QAction('Lattice Fit', self, statusTip="Lattice fit.",
                                   triggered =self.dockedOpt.GraphingLatticeOptionsTree)
-        self.normalizeAction = QAction('Normalize', self, statusTip ='Normalizes the data',
+        self.normalizeAction = QAction('Normalize', self, statusTip='Normalizes the data',
                                        triggered=self.readSpec.NormalizerDialog)
         self.algebraicExpAction = QAction('Algebraic Expressions', self, statusTip='Algebraic expressions.',
                                        triggered=self.dockedOpt.DataGraphingAlgebraicExpOptionsTree)
@@ -200,7 +207,7 @@ class MainWindow (QMainWindow):
     def aboutHelp(self):
         """Talks briefly about the program.
         """
-        """This needs further development. In it's infancy level. """
+        """This needs further development. In its infancy level. """
         QMessageBox.about(self, "About xPlot Util",
                           "Click on the browse button to select and open a spec file. "
                           "The PVvalue files should be under the same directory as the spec. Double click"
@@ -403,7 +410,7 @@ class MainWindow (QMainWindow):
     def ReportButton(self):
         """This button creates a report.
         """
-        self.reportBtn = QPushButton('Report', self)
+        self.reportBtn = QPushButton('Fit Report', self)
         self.reportBtn.setStatusTip("Creates a report of the chosen data.")
         self.reportBtn.clicked.connect(self.CreateReport)
 
@@ -458,7 +465,7 @@ class MainWindow (QMainWindow):
         self.reportCbGausFit.setEnabled(False)
         self.reportCbLFit.setEnabled(False)
 
-        if self.dockedOpt.gausFitStat == True:
+        if self.dockedOpt.fitStat == True:
             self.reportCbGausFit.setEnabled(True)
         if self.dockedOpt.LFitStat == True:
             self.reportCbLFit.setEnabled(True)
@@ -515,5 +522,5 @@ def main():
     sys.exit(app.exec_())
 
 
-if __name__ == '__main__':
+if __name__.endswith('__main__'):
     main()
